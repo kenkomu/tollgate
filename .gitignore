@@ -1,0 +1,37 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# secrets — never commit a key, not even a testnet one
+.env
+.env.*
+!.env.example
+
+# foundry
+enforcement/out/
+enforcement/cache/
+enforcement/broadcast/
+
+# next.js
+dashboard/.next/
+dashboard/out/
+dashboard/next-env.d.ts
+
+# expo / react native
+mobile/.expo/
+mobile/dist/
+mobile/android/
+mobile/ios/
+mobile/*.jks
+mobile/*.p8
+mobile/*.p12
+
+# build output
+**/dist/
+**/*.tsbuildinfo
+
+# editors + os
+.DS_Store
+.vscode/
+.idea/
+*.log

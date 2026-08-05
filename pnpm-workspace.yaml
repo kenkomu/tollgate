@@ -1,0 +1,10 @@
+packages:
+  - shared
+  - dashboard
+  - mobile
+  - service
+  - agent
+
+# enforcement/ is deliberately absent — it is a Foundry project, not a JS package.
+# Its ABI reaches the rest of the repo through shared/, which is the only
+# place contract types are allowed to enter TypeScript.

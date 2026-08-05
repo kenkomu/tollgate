@@ -1,0 +1,25 @@
+{
+  "name": "@tollgate/agent",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The agent being leashed. Claude Agent SDK, spending USDC on Arc through Tollgate.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.11.0"
+  },
+  "scripts": {
+    "demo": "node --env-file=../.env src/index.ts",
+    "compromised": "node --env-file=../.env src/index.ts --compromised",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.144",
+    "@tollgate/shared": "workspace:*",
+    "viem": "^2.55.10",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.9.3"
+  }
+}
