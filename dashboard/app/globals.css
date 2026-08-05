@@ -1,0 +1,469 @@
+/*
+ * Tollgate design system.
+ *
+ * From plan §5.4: premium charcoal base, one confident accent, red reserved strictly for
+ * blocked and kill, tabular numerals, restrained motion. Trust is a visual property — a
+ * page that moves a lot, or shouts in three colours, does not read as somewhere you would
+ * leave money.
+ *
+ * The rule that matters: red means "this was stopped". It appears nowhere else. If red is
+ * on screen, something was refused or the owner pulled the switch.
+ */
+
+:root {
+  --ground: #0e1214;
+  --surface: #161c1f;
+  --surface-2: #1d2529;
+  --hair: #283236;
+  --ink: #e6eced;
+  --ink-2: #b3c0c3;
+  --muted: #7e8d91;
+
+  --accent: #c9913f;
+  --accent-soft: #2a2113;
+
+  --ok: #4fa985;
+  --ok-soft: #12241d;
+
+  /* Reserved. Blocked and kill only. */
+  --stop: #ce5f57;
+  --stop-soft: #2a1413;
+
+  --radius: 3px;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 10px 30px -14px rgb(0 0 0 / 0.7);
+
+  --font-display: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --ground: #f1f3f3;
+    --surface: #ffffff;
+    --surface-2: #e8ecec;
+    --hair: #d2d9d9;
+    --ink: #11181a;
+    --ink-2: #3d4a4d;
+    --muted: #6c7b7f;
+    --accent: #a6702a;
+    --accent-soft: #f0e2cb;
+    --ok: #2f7d60;
+    --ok-soft: #ddede5;
+    --stop: #a83932;
+    --stop-soft: #f6dedb;
+    --shadow: 0 1px 2px rgb(17 24 26 / 0.06), 0 8px 24px -12px rgb(17 24 26 / 0.18);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+}
+
+/* Every digit that could sit in a column does. */
+.num,
+.meter-value,
+.feed-amount {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
+.wrap {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 24px 96px;
+}
+
+/* ---------- masthead ---------- */
+
+header.mast {
+  border-bottom: 1px solid var(--hair);
+  margin-bottom: 32px;
+}
+
+.mast-inner {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 30px 24px 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.wordmark {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  margin: 0;
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 8px;
+}
+
+.mast-meta {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--muted);
+  text-align: right;
+  line-height: 1.8;
+}
+
+.mast-meta a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.mast-meta a:hover {
+  color: var(--accent);
+}
+
+/* ---------- layout ---------- */
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+@media (min-width: 920px) {
+  .grid-2 {
+    grid-template-columns: 1.15fr 1fr;
+  }
+}
+
+section.card {
+  background: var(--surface);
+  border: 1px solid var(--hair);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 22px 24px;
+}
+
+section.card.stopped {
+  border-color: var(--stop);
+}
+
+h2.card-title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 19px;
+  margin: 0 0 3px;
+  letter-spacing: -0.005em;
+}
+
+.card-note {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0 0 18px;
+}
+
+/* ---------- meters ---------- */
+
+.meter {
+  margin-bottom: 18px;
+}
+
+.meter:last-child {
+  margin-bottom: 0;
+}
+
+.meter-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 7px;
+}
+
+.meter-label {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.meter-value {
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.meter-track {
+  height: 7px;
+  background: var(--surface-2);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.meter-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 400ms ease;
+}
+
+.meter-fill.ok {
+  background: var(--ok);
+}
+
+.meter-fill.stopped {
+  background: var(--stop);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .meter-fill {
+    transition: none;
+  }
+}
+
+/* ---------- key/value rows ---------- */
+
+dl.facts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+}
+
+dl.facts dt {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 9px 20px 9px 0;
+  border-bottom: 1px solid var(--hair);
+  white-space: nowrap;
+}
+
+dl.facts dd {
+  margin: 0;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--hair);
+  font-size: 13px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+dl.facts > :nth-last-child(-n + 2) {
+  border-bottom: 0;
+}
+
+/* ---------- chips ---------- */
+
+.chip {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 2px;
+  white-space: nowrap;
+}
+
+.chip.ok {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.chip.stopped {
+  background: var(--stop-soft);
+  color: var(--stop);
+}
+
+.chip.accent {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* ---------- feed ---------- */
+
+.feed {
+  display: flex;
+  flex-direction: column;
+  max-height: 540px;
+  overflow-y: auto;
+}
+
+.feed-row {
+  display: grid;
+  grid-template-columns: 3px 1fr;
+  border-bottom: 1px solid var(--hair);
+}
+
+.feed-row:last-child {
+  border-bottom: 0;
+}
+
+.feed-stripe {
+  background: var(--ok);
+}
+
+.feed-row.stopped .feed-stripe {
+  background: var(--stop);
+}
+
+.feed-row.neutral .feed-stripe {
+  background: var(--muted);
+}
+
+.feed-body {
+  padding: 11px 0 11px 14px;
+}
+
+.feed-top {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.feed-what {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.feed-amount {
+  margin-left: auto;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.feed-sub {
+  color: var(--muted);
+  font-size: 12.5px;
+  margin-top: 2px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.feed-sub a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.feed-sub a:hover {
+  color: var(--accent);
+}
+
+.mono-addr {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+/* ---------- buttons ---------- */
+
+button {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 9px 16px;
+  border-radius: 2px;
+  border: 1px solid var(--hair);
+  background: var(--surface-2);
+  color: var(--ink);
+  cursor: pointer;
+  transition: opacity 120ms ease;
+}
+
+button:hover:not(:disabled) {
+  opacity: 0.82;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--ground);
+}
+
+button.danger {
+  background: var(--stop);
+  border-color: var(--stop);
+  color: var(--ground);
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* ---------- approvals ---------- */
+
+.approval {
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+.approval:last-child {
+  margin-bottom: 0;
+}
+
+.approval-why {
+  color: var(--ink-2);
+  font-size: 13px;
+  margin: 6px 0 12px;
+}
+
+.empty {
+  color: var(--muted);
+  font-size: 13px;
+  padding: 20px 0;
+  text-align: center;
+}
+
+.error {
+  color: var(--stop);
+  font-size: 12.5px;
+  margin-top: 10px;
+}

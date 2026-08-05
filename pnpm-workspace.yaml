@@ -1,10 +1,16 @@
 packages:
   - shared
   - dashboard
-  - mobile
-  - service
   - agent
 
 # enforcement/ is deliberately absent — it is a Foundry project, not a JS package.
 # Its ABI reaches the rest of the repo through shared/, which is the only
 # place contract types are allowed to enter TypeScript.
+#
+# mobile/ and service/ are not listed yet; see docs/BACKLOG.md.
+
+# unrs-resolver is a native binary used by eslint-config-next's resolver. It runs a
+# postinstall build, which pnpm blocks by default. Allowed explicitly rather than left
+# to an interactive prompt, so a clean clone installs without stopping to ask.
+allowBuilds:
+  unrs-resolver: true

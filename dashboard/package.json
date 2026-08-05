@@ -1,0 +1,28 @@
+{
+  "name": "@tollgate/dashboard",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The owner's control plane: policy, live audit log, payee approvals, kill switch.",
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@tollgate/shared": "workspace:*",
+    "next": "16.3.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "viem": "^2.55.10"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.0",
+    "typescript": "^5.9.3"
+  }
+}

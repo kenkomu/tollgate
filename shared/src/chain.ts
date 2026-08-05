@@ -103,6 +103,38 @@ export const ARC_GATEWAY_DOMAIN = 26 as const;
 export const MIN_GAS_PRICE_WEI = 20_000_000_000n; // 20 Gwei
 export const SUGGESTED_PRIORITY_FEE_WEI = 1_000_000_000n; // 1 Gwei tip
 
+/**
+ * Largest `eth_getLogs` span Arc's RPC will actually serve.
+ *
+ * The error message claims 100,000 — "query exceeds max block range 100000" — but a
+ * 100,000-block window is then refused with "requested range too large". Probing the
+ * endpoint directly: 50,000 fails, 20,000 succeeds. So the advertised limit is not the
+ * enforced one, and 20,000 is what we use.
+ *
+ * At roughly half-second blocks this is only a few hours of history per request, so any
+ * log read over a useful period must be chunked. Reading from genesis is not slow here,
+ * it is refused outright.
+ */
+export const MAX_LOG_BLOCK_RANGE = 20_000n;
+
+/**
+ * How far back a live chain read will reach before we stop chunking.
+ *
+ * ~400,000 blocks is a couple of days on Arc, which is about 20 requests. Beyond that,
+ * reading history straight from the RPC on every page load stops being reasonable and
+ * the answer is the indexer in plan §2.3 — a cache in front of the chain, never an
+ * authority over it. Until that exists, the dashboard shows recent history and says so.
+ */
+export const MAX_HISTORY_BLOCKS = 400_000n;
+
+/**
+ * Block in which the current PolicyEngine was deployed.
+ *
+ * Every log query starts here rather than at genesis. Override with
+ * POLICY_ENGINE_DEPLOY_BLOCK when pointing at a different deployment.
+ */
+export const POLICY_ENGINE_DEPLOY_BLOCK = 55_440_673n;
+
 export const FAUCET_URL = "https://faucet.circle.com";
 
 export function explorerTx(hash: string): string {

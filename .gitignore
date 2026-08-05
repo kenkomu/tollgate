@@ -35,3 +35,4 @@ mobile/*.p12
 .vscode/
 .idea/
 *.log
+.tollgate/

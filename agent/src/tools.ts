@@ -2,6 +2,7 @@ import {formatUsdc, fromUsdc, Reason, usdc} from "@tollgate/shared";
 import {tool} from "@anthropic-ai/claude-agent-sdk";
 import {z} from "zod";
 import {isAddress, type Address} from "viem";
+import {fileRequest} from "./approvals.ts";
 import {SERVICES, findService} from "./marketplace.ts";
 import type {TollgateClient} from "./tollgate.ts";
 
@@ -180,6 +181,14 @@ export function createTollgateTools(client: TollgateClient, owner: Address, emit
     async ({serviceId, why}) => {
       const service = findService(serviceId);
       if (!service) return text(`No such service: ${serviceId}`);
+
+      await fileRequest({
+        serviceId: service.id,
+        serviceName: service.name,
+        payee: service.payee,
+        amount: formatUsdc(service.price),
+        why,
+      });
 
       emit({kind: "escalated", label: service.name, payee: service.payee, why});
       return text(

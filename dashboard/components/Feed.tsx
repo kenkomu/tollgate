@@ -1,0 +1,77 @@
+import {formatUsdc} from "@tollgate/shared";
+import {describe, type Activity} from "../lib/activity.ts";
+import {shortAddress, txUrl} from "../lib/chain.ts";
+
+function when(timestamp: number): string {
+  if (!timestamp) return "";
+  const seconds = Math.floor(Date.now() / 1000) - timestamp;
+  if (seconds < 60) return "just now";
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  return new Date(timestamp * 1000).toLocaleDateString();
+}
+
+/**
+ * The audit log.
+ *
+ * Every row here is a contract event, read from Arc at request time. We store none of it,
+ * which means none of it can be wrong — and it is why the "rebuild the whole thing from
+ * chain" claim in §2.4 is not aspirational here, it is just what the code does.
+ *
+ * Written in plain English rather than event names, per §5.1: an owner reading this should
+ * not need to know what a `PayeeSet` is.
+ */
+export function Feed({entries}: {entries: Activity[]}) {
+  if (entries.length === 0) {
+    return (
+      <section className="card">
+        <h2 className="card-title">Activity</h2>
+        <p className="card-note">Every payment and every policy change, read from Arc.</p>
+        <div className="empty">Nothing has happened yet.</div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="card">
+      <h2 className="card-title">Activity</h2>
+      <p className="card-note">
+        Every payment and policy change, read from Arc at page load. Nothing is stored here.
+      </p>
+
+      <div className="feed">
+        {entries.slice(0, 40).map((entry) => {
+          const stopped = entry.kind === "paused" || entry.kind === "payee-removed";
+          const neutral = entry.kind === "policy-created" || entry.kind === "resumed";
+          const rowClass = stopped ? "feed-row stopped" : neutral ? "feed-row neutral" : "feed-row";
+
+          return (
+            <div className={rowClass} key={entry.key}>
+              <div className="feed-stripe" />
+              <div className="feed-body">
+                <div className="feed-top">
+                  <span className="feed-what">{describe(entry)}</span>
+                  {entry.amount !== undefined ? (
+                    <span className="feed-amount">{formatUsdc(entry.amount)}</span>
+                  ) : null}
+                </div>
+                <div className="feed-sub">
+                  {entry.payee ? (
+                    <span className="mono-addr">to {shortAddress(entry.payee)}</span>
+                  ) : null}
+                  {entry.agent ? (
+                    <span className="mono-addr">by {shortAddress(entry.agent)}</span>
+                  ) : null}
+                  {entry.timestamp ? <span>{when(entry.timestamp)}</span> : null}
+                  <a href={txUrl(entry.txHash)} target="_blank" rel="noreferrer">
+                    proof ↗
+                  </a>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
