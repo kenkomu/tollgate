@@ -63,7 +63,19 @@ async function SpendSection({owner: who, budgetCap}: {owner: Address; budgetCap:
           Cumulative, from <code>Spent</code> events. The steps are the payments — nothing
           moves between them.
         </p>
-        <SpendChart points={points} budgetCap={budgetCap} />
+        <SpendChart
+          points={points}
+          budgetCap={budgetCap}
+          now={Math.floor(Date.now() / 1000)}
+          startLabel={
+            points.length
+              ? new Date(points[0]!.timestamp * 1000).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                })
+              : ""
+          }
+        />
       </section>
 
       <Feed entries={audit.entries} limit={8} more />

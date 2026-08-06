@@ -29,10 +29,24 @@ export interface SpendPoint {
 export function SpendChart({
   points,
   budgetCap,
+  now,
+  startLabel,
   height = 200,
 }: {
   points: SpendPoint[];
   budgetCap: bigint;
+  /**
+   * The right edge of the time axis, in unix seconds, decided by the server.
+   *
+   * Not `Date.now()`. Reading the clock here would give the server render and the client
+   * hydration two different x-domains, and every coordinate in the drawing would differ
+   * by a hair — which React correctly refuses to reconcile. The whole chart is a pure
+   * function of its props, and "now" is a prop like any other. It advances when the live
+   * poller re-reads the chain, which is also the only moment the data behind it can change.
+   */
+  now: number;
+  /** Pre-formatted server-side, so a browser in another timezone cannot disagree. */
+  startLabel: string;
   height?: number;
 }) {
   const [hover, setHover] = useState<number | null>(null);
@@ -62,7 +76,7 @@ export function SpendChart({
 
   // Extend the x domain to now, so a flat tail honestly shows "nothing since".
   const t0 = first.timestamp;
-  const t1 = Math.max(last.timestamp, Math.floor(Date.now() / 1000));
+  const t1 = Math.max(last.timestamp, now);
   const span = Math.max(t1 - t0, 1);
 
   const x = (t: number) => padL + ((t - t0) / span) * plotW;
@@ -161,7 +175,7 @@ export function SpendChart({
       ) : null}
 
       <div className="chart-x">
-        <span>{new Date(t0 * 1000).toLocaleDateString()}</span>
+        <span>{startLabel}</span>
         <span>now</span>
       </div>
     </div>

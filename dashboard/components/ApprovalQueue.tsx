@@ -70,7 +70,12 @@ export function ApprovalQueue({requests}: {requests: ApprovalRequest[]}) {
             <div className="feed-sub">
               <span className="mono-addr">{shortAddress(request.payee)}</span>
               <span>·</span>
-              <span>{new Date(request.requestedAt).toLocaleString()}</span>
+              {/* The owner should see this in their own timezone, which the server cannot
+                  know — so the two renders legitimately differ and React is told to expect
+                  it. The instant is identical either way. */}
+              <span suppressHydrationWarning>
+                {new Date(request.requestedAt).toLocaleString()}
+              </span>
             </div>
             <p className="approval-why">{request.why}</p>
             <div className="actions">
