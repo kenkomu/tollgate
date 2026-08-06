@@ -10,7 +10,7 @@ import {SpendChart, type SpendPoint} from "../components/SpendChart.tsx";
 import {StatTile} from "../components/StatTile.tsx";
 import {Verdict} from "../components/Verdict.tsx";
 import {auditFor, owner, policyFor} from "../lib/data.ts";
-import {isConfigured} from "../lib/chain.ts";
+import {ENGINE, isConfigured, shortAddress} from "../lib/chain.ts";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +21,8 @@ export const dynamic = "force-dynamic";
 async function SpendSection({owner: who, budgetCap}: {owner: Address; budgetCap: bigint}) {
   const audit = await auditFor(who);
   const payments = audit.entries.filter((entry) => entry.kind === "paid");
+  const refusals = audit.entries.filter((entry) => entry.kind === "refused");
+  const blocked = refusals.reduce((sum, entry) => sum + (entry.amount ?? 0n), 0n);
 
   // Oldest first for the chart; the feed reads newest first.
   const points: SpendPoint[] = payments
@@ -34,7 +36,6 @@ async function SpendSection({owner: who, budgetCap}: {owner: Address; budgetCap:
     .reverse();
 
   const moved = payments.reduce((sum, entry) => sum + (entry.amount ?? 0n), 0n);
-  const largest = payments.reduce((max, entry) => ((entry.amount ?? 0n) > max ? entry.amount! : max), 0n);
 
   return (
     <>
@@ -46,9 +47,14 @@ async function SpendSection({owner: who, budgetCap}: {owner: Address; budgetCap:
         />
         <StatTile label="total moved" value={formatUsdc(moved)} context="from the owner's own wallet" />
         <StatTile
-          label="largest single"
-          value={payments.length ? formatUsdc(largest) : "—"}
-          context="the per-payment cap was never exceeded"
+          label="payments refused"
+          value={String(refusals.length)}
+          tone={refusals.length ? "stop" : undefined}
+          context={
+            refusals.length
+              ? `${formatUsdc(blocked)} the contract would not let through`
+              : "nothing has been turned away yet"
+          }
         />
         <StatTile
           label="approved payees"
@@ -142,9 +148,8 @@ export default async function Page() {
           <h2 className="card-title">Why this is different</h2>
           <p className="card-note">
             The limits above are not settings this app obeys. They are conditions in a
-            contract at{" "}
-            <code>0x7Fa8…376D</code> that every payment must satisfy before any money
-            moves.
+            contract at <code>{shortAddress(ENGINE)}</code> that every payment must satisfy
+            before any money moves.
           </p>
           <p className="prose">
             An agent with a stolen key, a jailbroken prompt, or a bug still cannot exceed

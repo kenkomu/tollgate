@@ -38,6 +38,31 @@ export class PaymentInFlightError extends Error {
 }
 
 /**
+ * Policy refused the payment, and the refusal is now on chain.
+ *
+ * Distinct from the two errors below because nothing went wrong here — the system worked.
+ * The transaction succeeded, a `Refused` event was written, and no funds moved. The agent
+ * is told in the same terms an owner would read.
+ */
+export class PolicyRefusedError extends Error {
+  readonly reason: Reason;
+  readonly reasonName: string;
+  readonly retryable: boolean;
+  readonly txHash: Hex;
+  readonly explorerUrl: string;
+
+  constructor(reason: Reason, txHash: Hex, explorerUrl: string) {
+    super(`REFUSED by policy: ${reasonName(reason)}. ${explainToAgent(reason)} Nothing was spent.`);
+    this.name = "PolicyRefusedError";
+    this.reason = reason;
+    this.reasonName = reasonName(reason);
+    this.retryable = isRetryable(reason);
+    this.txHash = txHash;
+    this.explorerUrl = explorerUrl;
+  }
+}
+
+/**
  * The payment was mined and reverted.
  *
  * Reaching this means policy changed between the pre-flight check and execution — the
@@ -152,14 +177,27 @@ export class TollgateClient {
     // one are the same shape, rather than the second being the first plus an override.
     const fees = await arcFees(this.#publicClient);
 
+    // `trySpend`, not `spend`.
+    //
+    // The reverting variant is cheaper for the agent — a refused attempt costs no gas at
+    // all — and it leaves the owner with a log containing every payment their agent made
+    // and no trace of anything it was stopped from making. That is the wrong trade for
+    // the party who is actually at risk. Paying ~$0.0007 to put "your agent tried to send
+    // $1,000 to a burn address and was blocked" permanently on chain is the entire point
+    // of the product, and it is not the agent's call to opt out of being watched.
     const {request, result} = await this.#publicClient.simulateContract({
       address: this.engine,
       abi: policyEngineAbi,
-      functionName: "spend",
+      functionName: "trySpend",
       args: [payee, amount],
       account: this.#account,
       ...fees,
     });
+
+    // The simulation already told us the answer. Refusals are still surfaced to the agent
+    // as a thrown `PolicyRefusedError`, so nothing downstream can mistake one for a
+    // payment — but we submit anyway, because the record is the product.
+    const simulated = Number(result) as Reason;
 
     const txHash = await this.#walletClient.writeContract(request);
     const explorerUrl = `${arcTestnet.blockExplorers.default.url}/tx/${txHash}`;
@@ -175,10 +213,21 @@ export class TollgateClient {
       throw new PaymentInFlightError(txHash, explorerUrl);
     }
 
-    // Simulation passed, so a revert here means state moved under us between the two.
+    // `trySpend` does not revert on a policy refusal, so a failed receipt here is a real
+    // execution failure — out of gas, or a transfer the token itself rejected.
     if (receipt.status !== "success") throw new PaymentRevertedError(txHash, explorerUrl);
 
-    return {txHash, explorerUrl, spentTotal: result as bigint};
+    if (simulated !== Reason.OK) throw new PolicyRefusedError(simulated, txHash, explorerUrl);
+
+    const spentTotal = await this.remainingBudgetToSpent();
+    return {txHash, explorerUrl, spentTotal};
+  }
+
+  /** Lifetime spend, read back from chain rather than inferred from a return value. */
+  private async remainingBudgetToSpent(): Promise<bigint> {
+    const owner = await this.owner();
+    const policy = await this.getPolicy(owner);
+    return policy.spent;
   }
 
   /**

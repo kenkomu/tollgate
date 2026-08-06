@@ -1,5 +1,5 @@
 import Link from "next/link";
-import {formatUsdc} from "@tollgate/shared";
+import {explainToOwner, formatUsdc} from "@tollgate/shared";
 import {describe, type Activity} from "../lib/activity.ts";
 import {shortAddress, txUrl} from "../lib/chain.ts";
 import {CheckIcon, ExternalIcon, SlidersIcon, StopIcon} from "./Icon.tsx";
@@ -7,7 +7,7 @@ import {CheckIcon, ExternalIcon, SlidersIcon, StopIcon} from "./Icon.tsx";
 /** Colour already carries the row's meaning; the glyph repeats it for anyone who can't see it. */
 function KindIcon({kind}: {kind: Activity["kind"]}) {
   if (kind === "paid") return <CheckIcon size={13} />;
-  if (kind === "paused" || kind === "payee-removed") return <StopIcon size={13} />;
+  if (kind === "refused" || kind === "paused" || kind === "payee-removed") return <StopIcon size={13} />;
   return <SlidersIcon size={13} />;
 }
 
@@ -60,7 +60,8 @@ export function Feed({
 
       <div className="feed">
         {entries.slice(0, limit).map((entry) => {
-          const stopped = entry.kind === "paused" || entry.kind === "payee-removed";
+          const stopped =
+            entry.kind === "refused" || entry.kind === "paused" || entry.kind === "payee-removed";
           const neutral = entry.kind === "policy-created" || entry.kind === "resumed";
           const rowClass = stopped ? "feed-row stopped" : neutral ? "feed-row neutral" : "feed-row";
 
@@ -77,9 +78,17 @@ export function Feed({
                     <span className="feed-amount">{formatUsdc(entry.amount)}</span>
                   ) : null}
                 </div>
+                {/* The refusal reason, in the owner's words rather than the enum's. This is
+                    the line the whole redeploy existed to make possible. */}
+                {entry.reason !== undefined ? (
+                  <p className="feed-reason">{explainToOwner(entry.reason)}</p>
+                ) : null}
+
                 <div className="feed-sub">
                   {entry.payee ? (
-                    <span className="mono-addr">to {shortAddress(entry.payee)}</span>
+                    <span className="mono-addr">
+                      {entry.kind === "refused" ? "blocked to" : "to"} {shortAddress(entry.payee)}
+                    </span>
                   ) : null}
                   {entry.agent ? (
                     <span className="mono-addr">by {shortAddress(entry.agent)}</span>

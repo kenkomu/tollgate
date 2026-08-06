@@ -110,7 +110,14 @@ async function readAllLogs(head: bigint) {
  * replayed read cannot double-count a payment.
  */
 
-export type ActivityKind = "paid" | "payee-allowed" | "payee-removed" | "paused" | "resumed" | "policy-created";
+export type ActivityKind =
+  | "paid"
+  | "refused"
+  | "payee-allowed"
+  | "payee-removed"
+  | "paused"
+  | "resumed"
+  | "policy-created";
 
 export interface Activity {
   key: string;
@@ -124,6 +131,8 @@ export interface Activity {
   agent?: Address;
   spentTotal?: bigint;
   availableAfter?: bigint;
+  /** Present on refusals — why the contract said no. */
+  reason?: Reason;
 }
 
 export interface AuditLog {
@@ -151,6 +160,7 @@ export async function readAuditLog(owner: Address): Promise<AuditLog> {
   });
 
   const spentLogs = mine.filter((l) => l.eventName === "Spent");
+  const refusedLogs = mine.filter((l) => l.eventName === "Refused");
   const payeeLogs = mine.filter((l) => l.eventName === "PayeeSet");
   const pauseLogs = mine.filter((l) => l.eventName === "PauseSet");
   const createdLogs = mine.filter((l) => l.eventName === "PolicyCreated");
@@ -170,6 +180,25 @@ export async function readAuditLog(owner: Address): Promise<AuditLog> {
       agent: a.agent,
       spentTotal: a.spentTotal,
       availableAfter: a.availableAfter,
+    });
+  }
+
+  // Attempts the contract turned away. These only exist because the agent used `trySpend`
+  // — a reverted `spend` takes its own logs down with it — so an empty list here means
+  // either nothing was refused or the caller chose the silent path, never that a refusal
+  // was lost.
+  for (const log of refusedLogs) {
+    const a = log.args as {agent?: Address; payee?: Address; amount?: bigint; reason?: number};
+    entries.push({
+      key: spendKey(log.transactionHash, log.logIndex),
+      kind: "refused",
+      blockNumber: log.blockNumber,
+      timestamp: 0,
+      txHash: log.transactionHash,
+      amount: a.amount,
+      payee: a.payee,
+      agent: a.agent,
+      reason: a.reason as Reason | undefined,
     });
   }
 
@@ -243,6 +272,8 @@ export function describe(entry: Activity): string {
   switch (entry.kind) {
     case "paid":
       return "Payment allowed";
+    case "refused":
+      return "Payment refused";
     case "payee-allowed":
       return "You approved a payee";
     case "payee-removed":

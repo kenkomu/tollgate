@@ -9,10 +9,14 @@ import {ShieldIcon, StopIcon} from "./Icon.tsx";
  * state and follows with the ceiling that produced it.
  *
  * Every figure comes from a single `getPolicy` call, which is why this can paint before
- * the log walk finishes. It deliberately claims nothing about refusals: a reverted spend
- * emits no event, so a count of blocked attempts is not something chain can tell us, and
- * a dashboard that invented one would be exactly the off-chain assertion this project
- * exists to replace.
+ * the log walk finishes.
+ *
+ * This used to carry a note explaining why it could say nothing about refusals — a
+ * reverted spend emits no event, so a count of blocked attempts was not something chain
+ * could tell us, and inventing one would have been exactly the off-chain assertion this
+ * project exists to replace. `trySpend` and the `Refused` event closed that gap. The count
+ * now lives in the KPI strip, one log walk behind, and every one of them is a real
+ * transaction someone can open on ArcScan.
  */
 export function Verdict({policy}: {policy: Policy}) {
   const stopped = policy.paused;

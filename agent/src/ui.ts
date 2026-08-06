@@ -66,6 +66,9 @@ export function renderEvent(event: AgentEvent): void {
         `  ${red("✕")} ${red(bold("REFUSED"))}  ${event.label} ${bold(formatUsdc(event.amount))}`,
       );
       console.log(`    ${red(reasonName(event.reason))} ${grey("—")} ${grey(event.message)}`);
+      // A refusal now has a transaction behind it, so it gets a proof link like a payment
+      // does. This line is the demo: the block is a fact on chain, not a claim in a log.
+      if (event.explorerUrl) console.log(`    ${dim(event.explorerUrl)}`);
       break;
 
     case "escalated":

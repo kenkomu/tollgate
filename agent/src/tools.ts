@@ -4,7 +4,12 @@ import {z} from "zod";
 import {isAddress, type Address} from "viem";
 import {fileRequest} from "./approvals.ts";
 import {SERVICES, findService} from "./marketplace.ts";
-import {PaymentInFlightError, PaymentRevertedError, type TollgateClient} from "./tollgate.ts";
+import {
+  PaymentInFlightError,
+  PaymentRevertedError,
+  PolicyRefusedError,
+  type TollgateClient,
+} from "./tollgate.ts";
 
 /**
  * The tools the agent is given.
@@ -23,7 +28,16 @@ export type AgentEvent =
   | {kind: "listed"; count: number}
   | {kind: "checked"; label: string; amount: bigint; reason: Reason; allowed: boolean; message: string}
   | {kind: "paid"; label: string; amount: bigint; txHash: string; explorerUrl: string}
-  | {kind: "refused"; label: string; amount: bigint; reason: Reason; message: string}
+  | {
+      kind: "refused";
+      label: string;
+      amount: bigint;
+      reason: Reason;
+      message: string;
+      /** Present now that refusals settle on chain rather than dying in a pre-check. */
+      txHash?: string;
+      explorerUrl?: string;
+    }
   | {kind: "escalated"; label: string; payee: Address; why: string};
 
 export type EventSink = (event: AgentEvent) => void;
@@ -40,6 +54,15 @@ function text(body: string) {
  * says so in the first line and hands back the transaction hash to resolve instead.
  */
 function explainSubmissionFailure(error: unknown): string {
+  if (error instanceof PolicyRefusedError) {
+    return (
+      `${error.message}\n` +
+      `This refusal is on chain: ${error.explorerUrl}\n` +
+      (error.retryable
+        ? `This one can succeed later — wait and try again.`
+        : `Retrying will not help. Only the owner can change this.`)
+    );
+  }
   if (error instanceof PaymentInFlightError) {
     return (
       `PAYMENT STATUS UNKNOWN. Do NOT retry this payment.\n` +
@@ -126,28 +149,31 @@ export function createTollgateTools(client: TollgateClient, owner: Address, emit
       const service = findService(serviceId);
       if (!service) return text(`No such service: ${serviceId}`);
 
-      const pre = await client.check(service.payee, service.price);
-      if (!pre.allowed) {
-        emit({
-          kind: "refused",
-          label: service.name,
-          amount: service.price,
-          reason: pre.reason,
-          message: pre.message,
-        });
-        return text(
-          `REFUSED by policy. Reason: ${pre.reasonName}. ${pre.message}\n` +
-            `Nothing was spent.` +
-            (pre.reason === Reason.PAYEE_NOT_ALLOWED
-              ? `\nThis payee is not on the owner's allowlist. Use request_payee_approval.`
-              : ""),
-        );
-      }
-
+      // No bail on a failed pre-check. The attempt is submitted either way, so that a
+      // refusal lands in the owner's audit log instead of vanishing into this process's
+      // stdout. `check_budget` remains available for free planning; this is the moment of
+      // committing, and committing is what gets recorded.
       let receipt;
       try {
         receipt = await client.spend(service.payee, service.price);
       } catch (error) {
+        if (error instanceof PolicyRefusedError) {
+          emit({
+            kind: "refused",
+            label: service.name,
+            amount: service.price,
+            reason: error.reason,
+            message: error.message,
+            txHash: error.txHash,
+            explorerUrl: error.explorerUrl,
+          });
+          return text(
+            explainSubmissionFailure(error) +
+              (error.reason === Reason.PAYEE_NOT_ALLOWED
+                ? `\nThis payee is not on the owner's allowlist. Use request_payee_approval.`
+                : ""),
+          );
+        }
         return text(explainSubmissionFailure(error));
       }
 
@@ -188,16 +214,21 @@ export function createTollgateTools(client: TollgateClient, owner: Address, emit
         return text(`Could not parse amount: ${amount}`);
       }
 
-      const pre = await client.check(payee, value);
-      if (!pre.allowed) {
-        emit({kind: "refused", label: `direct → ${payee}`, amount: value, reason: pre.reason, message: pre.message});
-        return text(`REFUSED by policy. Reason: ${pre.reasonName}. ${pre.message}\nNothing was spent.`);
-      }
-
       let receipt;
       try {
         receipt = await client.spend(payee, value);
       } catch (error) {
+        if (error instanceof PolicyRefusedError) {
+          emit({
+            kind: "refused",
+            label: `direct → ${payee}`,
+            amount: value,
+            reason: error.reason,
+            message: error.message,
+            txHash: error.txHash,
+            explorerUrl: error.explorerUrl,
+          });
+        }
         return text(explainSubmissionFailure(error));
       }
 
