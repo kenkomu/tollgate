@@ -133,7 +133,7 @@ export const MAX_HISTORY_BLOCKS = 400_000n;
  * Every log query starts here rather than at genesis. Override with
  * POLICY_ENGINE_DEPLOY_BLOCK when pointing at a different deployment.
  */
-export const POLICY_ENGINE_DEPLOY_BLOCK = 55_440_673n;
+export const POLICY_ENGINE_DEPLOY_BLOCK = 55_621_174n;
 
 /**
  * Fees that clear Arc's floor.

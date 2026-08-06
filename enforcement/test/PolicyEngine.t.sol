@@ -357,6 +357,89 @@ contract PolicyEngineTest is Test {
                                  HELPERS
     //////////////////////////////////////////////////////////////*/
 
+    /*//////////////////////////////////////////////////////////////
+                        trySpend — REFUSALS ON RECORD
+    //////////////////////////////////////////////////////////////*/
+
+    /// A reverted `spend` discards its own logs, so an owner reading the chain could see
+    /// every payment their agent made and nothing it was stopped from making. These lock
+    /// in the other half of that record.
+
+    function test_trySpend_emitsRefusedAndMovesNothing() public {
+        uint256 ownerBefore = usdc.balanceOf(owner);
+
+        vm.expectEmit(true, true, true, true);
+        emit PolicyEngine.Refused(owner, agent, stranger, 10e6, PolicyEngine.Reason.PAYEE_NOT_ALLOWED);
+
+        vm.prank(agent);
+        PolicyEngine.Reason r = engine.trySpend(stranger, 10e6);
+
+        assertEq(uint256(r), uint256(PolicyEngine.Reason.PAYEE_NOT_ALLOWED), "reason returned, not reverted");
+        assertEq(usdc.balanceOf(stranger), 0, "payee got nothing");
+        assertEq(usdc.balanceOf(owner), ownerBefore, "owner untouched");
+        assertEq(engine.getPolicy(owner).spent, 0, "refusal is not a spend");
+    }
+
+    function test_trySpend_succeedsExactlyLikeSpend() public {
+        vm.prank(agent);
+        PolicyEngine.Reason r = engine.trySpend(payee, 50e6);
+
+        assertEq(uint256(r), uint256(PolicyEngine.Reason.OK));
+        assertEq(usdc.balanceOf(payee), 50e6, "funds moved");
+        assertEq(engine.getPolicy(owner).spent, 50e6, "spend recorded");
+        assertEq(usdc.balanceOf(address(engine)), 0, "engine still holds nothing");
+    }
+
+    /// The two entry points share `_attempt`, so this is the test that keeps them honest.
+    function test_trySpend_reasonMatchesSpendRevert() public {
+        PolicyEngine.Reason predicted = engine.checkTransfer(agent, stranger, 10e6);
+
+        vm.prank(agent);
+        PolicyEngine.Reason returned = engine.trySpend(stranger, 10e6);
+
+        vm.prank(agent);
+        vm.expectRevert(abi.encodeWithSelector(PolicyEngine.PolicyViolation.selector, predicted));
+        engine.spend(stranger, 10e6);
+
+        assertEq(uint256(returned), uint256(predicted), "trySpend agrees with checkTransfer and spend");
+    }
+
+    function test_trySpend_unboundAgentIsRefusedNotReverted() public {
+        vm.prank(stranger);
+        PolicyEngine.Reason r = engine.trySpend(payee, 1e6);
+        assertEq(uint256(r), uint256(PolicyEngine.Reason.NO_POLICY));
+    }
+
+    /// A refused attempt must not quietly consume velocity headroom or budget.
+    function test_trySpend_refusalConsumesNothing() public {
+        uint128 availableBefore = engine.availableNow(owner);
+
+        vm.prank(agent);
+        engine.trySpend(stranger, 10e6);
+
+        assertEq(engine.availableNow(owner), availableBefore, "bucket untouched");
+        assertEq(engine.remainingBudget(owner), BUDGET, "budget untouched");
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            PAYEE GUARDRAILS
+    //////////////////////////////////////////////////////////////*/
+
+    /// The engine can never send what it receives, so paying it destroys the money.
+    function test_setPayee_rejectsTheEngineItself() public {
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(PolicyEngine.InvalidPayee.selector, address(engine)));
+        engine.setPayee(address(engine), true);
+
+        assertFalse(engine.isAllowedPayee(owner, address(engine)), "never allowlisted");
+    }
+
+    function test_setPayee_stillRejectsZero() public {
+        vm.prank(owner);
+        vm.expectRevert(PolicyEngine.ZeroAddress.selector);
+        engine.setPayee(address(0), true);
+    }
+
     function _expectBlocked(PolicyEngine.Reason reason, address to, uint256 amount) internal {
         assertEq(uint256(engine.checkTransfer(agent, to, amount)), uint256(reason), "checkTransfer reason");
         vm.prank(agent);

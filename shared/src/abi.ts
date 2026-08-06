@@ -399,6 +399,30 @@ export const policyEngineAbi = [
     "stateMutability": "nonpayable"
   },
   {
+    "type": "function",
+    "name": "trySpend",
+    "inputs": [
+      {
+        "name": "payee",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "reason",
+        "type": "uint8",
+        "internalType": "enum PolicyEngine.Reason"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
     "type": "event",
     "name": "AgentRotated",
     "inputs": [
@@ -581,6 +605,43 @@ export const policyEngineAbi = [
   },
   {
     "type": "event",
+    "name": "Refused",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "agent",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "payee",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "reason",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "enum PolicyEngine.Reason"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "Spent",
     "inputs": [
       {
@@ -676,6 +737,17 @@ export const policyEngineAbi = [
         "name": "alreadySpent",
         "type": "uint128",
         "internalType": "uint128"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidPayee",
+    "inputs": [
+      {
+        "name": "payee",
+        "type": "address",
+        "internalType": "address"
       }
     ]
   },

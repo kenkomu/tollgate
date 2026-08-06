@@ -119,6 +119,17 @@ contract PolicyEngine is ReentrancyGuardTransient {
         uint128 availableAfter
     );
 
+    /// @notice An attempt that policy refused, recorded on chain.
+    /// @dev    A reverted `spend` leaves no trace — the revert discards the log with
+    ///         everything else — so an owner could see what their agent was ALLOWED to do
+    ///         and never what it was STOPPED from doing. That is the wrong half of the
+    ///         story for a product whose entire claim is that it stops things. `trySpend`
+    ///         exists to emit this: the attempt costs gas, commits no funds, and leaves a
+    ///         permanent record that the agent asked and was told no.
+    event Refused(
+        address indexed owner, address indexed agent, address indexed payee, uint256 amount, Reason reason
+    );
+
     /*//////////////////////////////////////////////////////////////
                                   ERRORS
     //////////////////////////////////////////////////////////////*/
@@ -130,6 +141,8 @@ contract PolicyEngine is ReentrancyGuardTransient {
     error AgentAlreadyBound(address agent, address existingOwner);
     error ZeroAddress();
     error BudgetBelowSpent(uint128 requested, uint128 alreadySpent);
+    /// @notice The payee cannot be allowlisted, because paying it would destroy the funds.
+    error InvalidPayee(address payee);
 
     /*//////////////////////////////////////////////////////////////
                                CONSTRUCTOR
@@ -266,6 +279,10 @@ contract PolicyEngine is ReentrancyGuardTransient {
 
     function setPayee(address payee, bool allowed) public {
         if (payee == address(0)) revert ZeroAddress();
+        // This contract holds nothing and can send nothing. USDC transferred here is
+        // unrecoverable, and an owner allowlisting it would be one typo away from burning
+        // their budget. Refusing costs nothing and removes the footgun entirely.
+        if (payee == address(this)) revert InvalidPayee(payee);
         if (!_policies[msg.sender].exists) revert NoPolicy();
         isAllowedPayee[msg.sender][payee] = allowed;
         emit PayeeSet(msg.sender, payee, allowed);
@@ -285,13 +302,42 @@ contract PolicyEngine is ReentrancyGuardTransient {
     /// @dev    Caller must be the registered agent. Reverts with PolicyViolation otherwise.
     ///         Funds move owner -> payee. They never rest in this contract.
     function spend(address payee, uint256 amount) external nonReentrant returns (uint128 spentTotal) {
+        (Reason r, uint128 total) = _attempt(payee, amount);
+        // The revert discards the Refused log along with everything else, which is why a
+        // caller that wants the refusal on the record uses `trySpend` instead.
+        if (r != Reason.OK) revert PolicyViolation(r);
+        return total;
+    }
+
+    /// @notice Attempt a spend without reverting when policy refuses it.
+    /// @dev    Returns the reason instead of reverting, and emits `Refused` so the attempt
+    ///         survives on chain. This is the entry point that makes an owner's audit log
+    ///         complete: with `spend` alone, a refusal leaves no trace anywhere.
+    ///
+    ///         The caller MUST check the return value. A caller that ignores it will treat
+    ///         a refusal as a payment — which is why `spend` remains the reverting default
+    ///         and this is the deliberate opt-in.
+    /// @return reason `OK` if the funds moved, otherwise why they did not.
+    function trySpend(address payee, uint256 amount) external nonReentrant returns (Reason reason) {
+        (reason,) = _attempt(payee, amount);
+    }
+
+    /// @dev The one implementation. `spend` and `trySpend` differ only in what they do
+    ///      with the result, so they cannot diverge on what the policy actually is.
+    function _attempt(address payee, uint256 amount) internal returns (Reason, uint128) {
         address owner = ownerOf[msg.sender];
-        if (owner == address(0)) revert PolicyViolation(Reason.NO_POLICY);
+        if (owner == address(0)) {
+            emit Refused(address(0), msg.sender, payee, amount, Reason.NO_POLICY);
+            return (Reason.NO_POLICY, 0);
+        }
 
         Policy storage p = _policies[owner];
 
         Reason r = _evaluate(p, owner, msg.sender, payee, amount);
-        if (r != Reason.OK) revert PolicyViolation(r);
+        if (r != Reason.OK) {
+            emit Refused(owner, msg.sender, payee, amount, r);
+            return (r, p.spent);
+        }
 
         // ---- effects, then interaction ----
         // casting to 'uint128' is safe because _evaluate returned OK, which it only
@@ -303,11 +349,13 @@ contract PolicyEngine is ReentrancyGuardTransient {
         p.spent += amt;
         p.available = avail - amt;
         p.lastRefill = uint64(block.timestamp);
-        spentTotal = p.spent;
+        uint128 spentTotal = p.spent;
 
         emit Spent(owner, msg.sender, payee, amount, spentTotal, p.available);
 
         USDC.safeTransferFrom(owner, payee, amount);
+
+        return (Reason.OK, spentTotal);
     }
 
     /*//////////////////////////////////////////////////////////////
