@@ -1,4 +1,4 @@
-import {formatUsdc} from "@tollgate/shared";
+import {formatUsdc, formatUsdcApprox} from "@tollgate/shared";
 
 interface MeterProps {
   label: string;
@@ -32,7 +32,9 @@ export function Meter({label, value, total, sense, caption}: MeterProps) {
       <div className="meter-head">
         <span className="meter-label">{label}</span>
         <span className="meter-value">
-          {formatUsdc(value)} <span style={{color: "var(--muted)"}}>/ {formatUsdc(total)}</span>
+          {/* A gauge, not a record — the bucket's sub-cent digits are noise on a bar. */}
+          {formatUsdcApprox(value)}{" "}
+          <span style={{color: "var(--muted)"}}>/ {formatUsdc(total)}</span>
         </span>
       </div>
       <div className="meter-track">

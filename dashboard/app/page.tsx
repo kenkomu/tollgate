@@ -1,4 +1,4 @@
-import {arcTestnet, availableNow, formatUsdc, fromUsdc, ratePerDay, type Policy} from "@tollgate/shared";
+import {arcTestnet, availableNow, formatUsdc, formatUsdcApprox, type Policy} from "@tollgate/shared";
 import {ApprovalQueue} from "../components/ApprovalQueue.tsx";
 import {Feed} from "../components/Feed.tsx";
 import {KillSwitch} from "../components/KillSwitch.tsx";
@@ -91,14 +91,14 @@ export default async function Page() {
               value={policy.spent}
               total={policy.budgetCap}
               sense="used"
-              caption={`${fromUsdc(policy.budgetCap - policy.spent)} USDC left of the lifetime budget`}
+              caption={`${formatUsdc(policy.budgetCap - policy.spent)} left of the lifetime budget`}
             />
             <Meter
               label="rate headroom"
               value={headroom}
               total={policy.bucketCapacity}
               sense="remaining"
-              caption={`refills at about ${ratePerDay(policy.refillPerSecond)} USDC a day`}
+              caption={`refills at about ${formatUsdcApprox(policy.refillPerSecond * 86_400n)} a day`}
             />
 
             <dl className="facts" style={{marginTop: 20}}>

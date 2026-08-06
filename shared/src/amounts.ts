@@ -19,13 +19,36 @@ export function fromUsdc(amount: bigint): string {
   return formatUnits(amount, USDC_DECIMALS);
 }
 
-/** 12500000n -> "$12.50" — for display only, never for arithmetic. */
+/**
+ * 12500000n -> "$12.50" — for display only, never for arithmetic.
+ *
+ * Keeps all six decimals when they are there. Use this for anything that is a *record* of
+ * what moved: a payment, a cap the owner set. Never round a record.
+ */
 export function formatUsdc(amount: bigint): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     minimumFractionDigits: 2,
     maximumFractionDigits: 6,
+  }).format(Number(formatUnits(amount, USDC_DECIMALS)));
+}
+
+/**
+ * 2654429n -> "$2.65" — two decimals, rounded *down*.
+ *
+ * For gauges rather than records: the token bucket refills continuously, so its balance
+ * carries six decimals that mean nothing to a person reading a bar. Rounding down is the
+ * safe direction — a headroom readout must never promise more room than the contract will
+ * actually grant.
+ */
+export function formatUsdcApprox(amount: bigint): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+    roundingMode: "floor",
   }).format(Number(formatUnits(amount, USDC_DECIMALS)));
 }
 
