@@ -1,0 +1,535 @@
+<title>Tollgate — how it works</title>
+
+<style>
+  :root {
+    --ground: #0e1214;
+    --surface: #161c1f;
+    --surface-2: #1d2529;
+    --hair: #283236;
+    --ink: #e6eced;
+    --ink-2: #b3c0c3;
+    --muted: #7e8d91;
+    --accent: #c9913f;
+    --accent-soft: #241c10;
+    --ok: #4fa985;
+    --stop: #d66b62;
+    --stop-soft: #2a1413;
+    --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 12px 34px -18px rgb(0 0 0 / .8);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --ground: #f2f3f2;
+      --surface: #fff;
+      --surface-2: #e9eded;
+      --hair: #d5dbdb;
+      --ink: #11181a;
+      --ink-2: #3d4a4d;
+      --muted: #5d6b6e;
+      --accent: #8f5f20;
+      --accent-soft: #f6ecd9;
+      --ok: #286b52;
+      --stop: #9c332c;
+      --stop-soft: #fbe6e3;
+      --shadow: 0 1px 2px rgb(17 24 26 / .06), 0 10px 28px -16px rgb(17 24 26 / .22);
+    }
+  }
+
+  :root[data-theme="light"] {
+    --ground: #f2f3f2;
+    --surface: #fff;
+    --surface-2: #e9eded;
+    --hair: #d5dbdb;
+    --ink: #11181a;
+    --ink-2: #3d4a4d;
+    --muted: #5d6b6e;
+    --accent: #8f5f20;
+    --accent-soft: #f6ecd9;
+    --ok: #286b52;
+    --stop: #9c332c;
+    --stop-soft: #fbe6e3;
+    --shadow: 0 1px 2px rgb(17 24 26 / .06), 0 10px 28px -16px rgb(17 24 26 / .22);
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0e1214;
+    --surface: #161c1f;
+    --surface-2: #1d2529;
+    --hair: #283236;
+    --ink: #e6eced;
+    --ink-2: #b3c0c3;
+    --muted: #7e8d91;
+    --accent: #c9913f;
+    --accent-soft: #241c10;
+    --ok: #4fa985;
+    --stop: #d66b62;
+    --stop-soft: #2a1413;
+    --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 12px 34px -18px rgb(0 0 0 / .8);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 940px;
+    margin: 0 auto;
+    padding: 56px 24px 100px;
+    display: flex;
+    flex-direction: column;
+    gap: 52px;
+  }
+
+  .eyebrow {
+    margin: 0 0 10px;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  h1 {
+    font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+    font-weight: 400;
+    font-size: clamp(34px, 6vw, 50px);
+    line-height: 1.1;
+    letter-spacing: -.02em;
+    margin: 0 0 18px;
+    text-wrap: balance;
+  }
+
+  h2 {
+    font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+    font-weight: 400;
+    font-size: 25px;
+    letter-spacing: -.01em;
+    margin: 0 0 6px;
+    text-wrap: balance;
+  }
+
+  h3 {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0 0 4px;
+  }
+
+  p { margin: 0 0 14px; max-width: 68ch; }
+  p:last-child { margin-bottom: 0; }
+
+  .lede { font-size: 18px; color: var(--ink-2); max-width: 62ch; }
+  .section-note { color: var(--muted); font-size: 14.5px; margin-bottom: 22px; max-width: 66ch; }
+
+  section { display: flex; flex-direction: column; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--hair);
+    border-radius: 10px;
+    padding: 22px 24px;
+    box-shadow: var(--shadow);
+  }
+
+  code, .mono {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: .88em;
+  }
+
+  code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+
+  /* ---- figure ---- */
+
+  figure { margin: 0; }
+
+  .figure-scroll { overflow-x: auto; }
+
+  svg.diagram {
+    display: block;
+    width: 100%;
+    min-width: 700px;
+    height: auto;
+    color: var(--ink-2);
+  }
+
+  .d-box { fill: var(--surface-2); stroke: var(--hair); stroke-width: 1; }
+  .d-engine { fill: var(--surface-2); stroke: var(--accent); stroke-width: 1.5; }
+  .d-revert { fill: var(--stop-soft); stroke: var(--stop); stroke-width: 1; }
+  .d-title { fill: var(--ink); font: 600 14px system-ui, sans-serif; }
+  .d-sub { fill: var(--muted); font: 11.5px system-ui, sans-serif; }
+  .d-mono { fill: var(--muted); font: 10.5px ui-monospace, Menlo, monospace; }
+  .d-check { fill: var(--ink-2); font: 12px system-ui, sans-serif; }
+  .d-label { fill: var(--muted); font: 11.5px system-ui, sans-serif; }
+  .d-flow { stroke: currentColor; stroke-width: 1.4; fill: none; opacity: .75; }
+  .d-money { stroke: var(--accent); stroke-width: 2.6; fill: none; }
+  .d-money-label { fill: var(--accent); font: 600 12.5px system-ui, sans-serif; }
+  .d-stop { stroke: var(--stop); stroke-width: 1.6; fill: none; }
+  .d-stop-label { fill: var(--stop); font: 600 11.5px system-ui, sans-serif; }
+  .d-ok-label { fill: var(--ok); font: 600 11.5px system-ui, sans-serif; }
+  .d-rule { stroke: var(--hair); stroke-width: 1; }
+
+  figcaption {
+    margin-top: 16px;
+    font-size: 13.5px;
+    color: var(--muted);
+    max-width: 74ch;
+  }
+
+  /* ---- outcome grid ---- */
+
+  .outcomes {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 14px;
+  }
+
+  .outcome {
+    background: var(--surface);
+    border: 1px solid var(--hair);
+    border-top: 3px solid var(--muted);
+    border-radius: 10px;
+    padding: 18px 18px 20px;
+  }
+
+  .outcome.good { border-top-color: var(--ok); }
+  .outcome.stop { border-top-color: var(--stop); }
+  .outcome.warn { border-top-color: var(--accent); }
+
+  .outcome p { font-size: 13.5px; color: var(--muted); margin: 0; }
+
+  .verdict {
+    display: inline-block;
+    margin: 6px 0 10px;
+    font-family: ui-monospace, Menlo, monospace;
+    font-size: 10.5px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: var(--surface-2);
+    color: var(--ink-2);
+  }
+
+  .verdict.no { background: var(--stop-soft); color: var(--stop); }
+  .verdict.yes { background: var(--accent-soft); color: var(--accent); }
+
+  /* ---- tables ---- */
+
+  .table-scroll { overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    min-width: 480px;
+  }
+
+  th, td {
+    text-align: left;
+    padding: 11px 16px 11px 0;
+    border-bottom: 1px solid var(--hair);
+    vertical-align: top;
+  }
+
+  thead th {
+    font-family: ui-monospace, Menlo, monospace;
+    font-size: 10.5px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 400;
+  }
+
+  tbody th { font-weight: 600; white-space: nowrap; }
+  td.num { font-family: ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.why { color: var(--muted); }
+  tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
+
+  .pull {
+    border-left: 2px solid var(--accent);
+    padding: 4px 0 4px 20px;
+    margin: 4px 0 18px;
+    font-size: 17px;
+    color: var(--ink);
+    font-family: Georgia, serif;
+    max-width: 60ch;
+  }
+
+  ul.plain { margin: 0; padding-left: 20px; color: var(--muted); font-size: 14px; }
+  ul.plain li { margin-bottom: 7px; }
+  ul.plain li strong { color: var(--ink-2); font-weight: 600; }
+
+  .foot {
+    border-top: 1px solid var(--hair);
+    padding-top: 22px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  a { color: var(--accent); text-underline-offset: 2px; }
+  a:focus-visible, :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Arc testnet · chain 5042002</p>
+    <h1>Your agent holds a key.<br>It does not hold authority.</h1>
+    <p class="lede">
+      Tollgate moves an AI agent's spending limit off the prompt and into a contract the
+      agent cannot change. It can request a payment. Only the chain can approve one.
+    </p>
+  </header>
+
+  <section>
+    <h2>The payment path</h2>
+    <p class="section-note">
+      The detail that matters is where the money goes, and it is not where people assume.
+    </p>
+
+    <div class="card">
+      <figure>
+        <div class="figure-scroll">
+          <svg class="diagram" viewBox="0 0 900 440" role="img"
+               aria-label="Owner approves an allowance and sets caps on the PolicyEngine contract. The agent calls spend on the contract. The contract checks five rules; if all pass, USDC moves directly from the owner's wallet to the payee without passing through the contract. If any check fails, the transaction reverts with a reason code and no money moves.">
+            <defs>
+              <marker id="a-flow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <polygon points="0,1 10,5 0,9" fill="currentColor" opacity="0.75" />
+              </marker>
+              <marker id="a-money" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <polygon points="0,1 10,5 0,9" fill="var(--accent)" />
+              </marker>
+              <marker id="a-stop" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <polygon points="0,1 10,5 0,9" fill="var(--stop)" />
+              </marker>
+            </defs>
+
+            <!-- Owner -->
+            <rect class="d-box" x="30" y="40" width="170" height="72" rx="8" />
+            <text class="d-title" x="48" y="70">Owner</text>
+            <text class="d-sub" x="48" y="90">holds the USDC</text>
+
+            <!-- Payee -->
+            <rect class="d-box" x="700" y="40" width="170" height="72" rx="8" />
+            <text class="d-title" x="718" y="70">Payee</text>
+            <text class="d-sub" x="718" y="90">on the allowlist</text>
+
+            <!-- The money path: straight across the top, never dipping into the contract -->
+            <line class="d-money" x1="200" y1="76" x2="694" y2="76" marker-end="url(#a-money)" />
+            <text class="d-money-label" x="447" y="60" text-anchor="middle">USDC · owner to payee</text>
+            <text class="d-label" x="447" y="103" text-anchor="middle">the contract never holds it</text>
+
+            <!-- Agent -->
+            <rect class="d-box" x="30" y="252" width="170" height="72" rx="8" />
+            <text class="d-title" x="48" y="282">Agent</text>
+            <text class="d-sub" x="48" y="302">a key, not authority</text>
+
+            <!-- PolicyEngine -->
+            <rect class="d-engine" x="335" y="180" width="225" height="180" rx="8" />
+            <text class="d-title" x="355" y="206">PolicyEngine</text>
+            <text class="d-mono" x="355" y="223">0x7Fa8…376D</text>
+            <line class="d-rule" x1="355" y1="235" x2="540" y2="235" />
+            <text class="d-check" x="355" y="256">payee allowlisted</text>
+            <text class="d-check" x="355" y="277">under per-payment cap</text>
+            <text class="d-check" x="355" y="298">within lifetime budget</text>
+            <text class="d-check" x="355" y="319">within velocity bucket</text>
+            <text class="d-check" x="355" y="340">not paused or expired</text>
+
+            <!-- Owner sets the rules -->
+            <path class="d-flow" d="M 115 112 L 115 200 L 329 200" marker-end="url(#a-flow)" />
+            <text class="d-label" x="130" y="192">approve · caps · allowlist</text>
+
+            <!-- Agent asks -->
+            <path class="d-flow" d="M 200 288 L 329 288" marker-end="url(#a-flow)" />
+            <text class="d-label" x="264" y="279" text-anchor="middle">spend()</text>
+
+            <!-- Pass: authorises the transfer above -->
+            <path class="d-flow" d="M 447 176 L 447 86" marker-end="url(#a-flow)" />
+            <text class="d-ok-label" x="459" y="132">all five pass</text>
+
+            <!-- Fail -->
+            <path class="d-stop" d="M 564 302 L 646 302" marker-end="url(#a-stop)" />
+            <text class="d-stop-label" x="605" y="293" text-anchor="middle">any fails</text>
+
+            <rect class="d-revert" x="650" y="268" width="220" height="68" rx="8" />
+            <text class="d-title" x="668" y="296">Reverted</text>
+            <text class="d-sub" x="668" y="316">no money moves at all</text>
+          </svg>
+        </div>
+        <figcaption>
+          The contract sits on the <strong>authorisation</strong> path, not the custody path.
+          There is no deposit function and no withdraw function — its own USDC balance is
+          always zero. The owner keeps their money in their own wallet, and if the contract
+          is ever wrong, the damage is bounded by the outstanding allowance rather than the
+          whole balance.
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>Where a payment can end up</h2>
+    <p class="section-note">
+      Four outcomes. Three are clean answers. One is genuinely hard, and it is the one most
+      systems get wrong.
+    </p>
+
+    <div class="outcomes">
+      <div class="outcome good">
+        <h3>Refused before sending</h3>
+        <span class="verdict no">nothing moved</span>
+        <p>
+          The agent pre-checks with a free read. Costs no gas and no transaction. Three of
+          four services in the demo end here.
+        </p>
+      </div>
+      <div class="outcome good">
+        <h3>Refused on chain</h3>
+        <span class="verdict no">nothing moved</span>
+        <p>
+          Mined and reverted with a reason code. Gas is spent, no money is. Policy changed
+          between the check and the execution.
+        </p>
+      </div>
+      <div class="outcome warn">
+        <h3>Settled</h3>
+        <span class="verdict yes">money moved</span>
+        <p>
+          A <code>Spent</code> event, a receipt, and a row in the audit log keyed on
+          transaction hash so a reorg cannot double-count it.
+        </p>
+      </div>
+      <div class="outcome stop">
+        <h3>Unresolved</h3>
+        <span class="verdict">unknown</span>
+        <p>
+          Submitted, no receipt in time. It may still land. The only wrong move is to retry,
+          which is how one invoice gets paid twice.
+        </p>
+      </div>
+    </div>
+
+    <p class="pull" style="margin-top:26px">
+      A timeout is not proof of failure. The agent is told so in those words, because a model
+      handed a raw stack trace will do the reasonable-looking thing and try again.
+    </p>
+
+    <p style="color:var(--muted); font-size:14px">
+      And if it ever did double-pay, the caps still hold — the budget, the per-payment
+      ceiling and the velocity bucket all apply to the second payment exactly as to the
+      first. A double payment is a bookkeeping bug, not a failure of the leash.
+    </p>
+  </section>
+
+  <section>
+    <h2>Micro-payments</h2>
+    <p class="section-note">
+      Measured on chain, not estimated. Gas is flat at about $0.002 per payment whatever the
+      amount, so the only thing that changes with size is the overhead ratio.
+    </p>
+
+    <div class="card table-scroll">
+      <table>
+        <thead>
+          <tr><th scope="col">Payment</th><th scope="col">Fee overhead</th><th scope="col">Verdict</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">$2.00</th><td class="num">0.10%</td><td class="why">negligible</td></tr>
+          <tr><th scope="row">$0.50</th><td class="num">0.40%</td><td class="why">comfortable</td></tr>
+          <tr><th scope="row">$0.20</th><td class="num">1.0%</td><td class="why">the break-even most would accept</td></tr>
+          <tr><th scope="row">$0.10</th><td class="num">2.0%</td><td class="why">workable — verified with a real payment</td></tr>
+          <tr><th scope="row">$0.05</th><td class="num">4.0%</td><td class="why">marginal</td></tr>
+          <tr><th scope="row">$0.01</th><td class="num">20%</td><td class="why">don't</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p style="margin-top:18px; color:var(--muted); font-size:14px">
+      The contract itself has no minimum — it accepts down to one unit, $0.000001, and
+      rejects only zero. The floor is economic, not technical. Below roughly $0.05 the answer
+      is batching or off-chain settlement, not a smaller payment.
+    </p>
+  </section>
+
+  <section>
+    <h2>Why each piece is there</h2>
+    <p class="section-note">Choices specific to this problem. Where a default would have been fine, it isn't listed.</p>
+
+    <div class="card table-scroll">
+      <table>
+        <thead>
+          <tr><th scope="col">Choice</th><th scope="col">Why this one</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">Arc</th><td class="why">Gas is USDC. An agent economy prices work in dollars; needing a volatile gas token to buy a $0.05 API call is a currency problem before it is a spending problem.</td></tr>
+          <tr><th scope="row">Allowance, not custody</th><td class="why">We never hold funds. A vault would mean a far larger blast radius and a much harder thing to trust in a weekend-old contract.</td></tr>
+          <tr><th scope="row">Solidity 0.8.28</th><td class="why">Transient storage — a reentrancy guard at ~100 gas instead of ~5,000.</td></tr>
+          <tr><th scope="row">Foundry</th><td class="why">Fuzzing and invariants are native. For a contract whose value is "this limit always holds," the invariant is the test that matters.</td></tr>
+          <tr><th scope="row">One <code>_evaluate</code></th><td class="why">The pre-flight view and the enforcement path share one implementation, so they cannot drift.</td></tr>
+          <tr><th scope="row">viem + Node 26</th><td class="why">Types inferred from the ABI, and no build step. In a codebase where every amount is a <code>bigint</code>, the compiler catches decimals errors that users would otherwise find.</td></tr>
+          <tr><th scope="row">Server components, no API</th><td class="why">The page reads the chain directly. No route handlers, no client fetching, no serialisation boundary to keep in sync.</td></tr>
+          <tr><th scope="row">No database</th><td class="why">The audit log is rebuilt from events every request, so it cannot drift from what happened and cannot be tampered with. Losing the server loses nothing.</td></tr>
+          <tr><th scope="row">No chart library or webfonts</th><td class="why">Anything that has to load is something that can fail to load, in front of a judge, on conference wifi.</td></tr>
+          <tr><th scope="row">Deliberately unrestricted tools</th><td class="why">The agent can call <code>pay_address</code> with any address and any amount. Narrow tools would be the app-level guardrail this replaces — if the demo only worked because the tools were restrictive, it would prove nothing.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>What isn't built</h2>
+    <p class="section-note">
+      The parts worth knowing about before anyone asks. The full list is in the repository.
+    </p>
+
+    <div class="outcomes" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
+      <div class="card">
+        <h3 style="margin-bottom:10px">Gaps in the claim</h3>
+        <ul class="plain">
+          <li><strong>The dashboard cannot show a refusal.</strong> Reverts emit no events, so the UI proves what was allowed and cannot display what was stopped — the product's central claim.</li>
+          <li><strong>The attack demo depends on a model's choices.</strong> The hard evidence is two contract refusals; the model's own reasoning is not evidence. A scripted adversary would fix this.</li>
+          <li><strong>The owner key sits in a <code>.env</code> file.</strong> Non-custodial in the contract, custodial in the demo app.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3 style="margin-bottom:10px">Not yet capable of</h3>
+        <ul class="plain">
+          <li><strong>One agent per owner.</strong> A real operator runs a fleet.</li>
+          <li><strong>Per-payee budgets and time windows.</strong> The allowlist is binary today.</li>
+          <li><strong>Editing caps in the UI.</strong> Only pause and payee approval are writable.</li>
+          <li><strong>Batching.</strong> The fix for flat gas making sub-$0.05 payments uneconomic.</li>
+          <li><strong>An audit.</strong> Reviewed by us and a fuzzer, nobody else.</li>
+        </ul>
+      </div>
+    </div>
+
+    <p style="margin-top:22px; color:var(--muted); font-size:14px">
+      One known footgun, documented rather than quietly carried: nothing stops an owner from
+      allowlisting the PolicyEngine itself, which has no withdraw function. A one-line fix,
+      not applied before submission because redeploying would invalidate the verified
+      contract and every proof link in the demo.
+    </p>
+  </section>
+
+  <footer class="foot">
+    <p>
+      PolicyEngine is deployed and verified at
+      <span class="mono">0x7Fa88da4FD0a86Af9c9567f0c317be6FBa1a376D</span> on Arc testnet.
+      40 tests, including fuzz and invariant suites. Every payment shown in the dashboard
+      links to its transaction on ArcScan — the page is meant to be checked, not trusted.
+    </p>
+  </footer>
+
+</div>
