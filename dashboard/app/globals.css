@@ -316,6 +316,13 @@ section.card {
   padding: 22px 24px;
 }
 
+/* Only top-level cards space themselves. Cards inside a grid are spaced by its `gap`,
+   and giving them a margin too would double the gutter on one axis. */
+.content > section.card,
+.content > section {
+  margin-bottom: 18px;
+}
+
 section.card.stopped {
   border-color: var(--stop);
 }
@@ -1066,6 +1073,111 @@ table.rules tbody tr:last-child td {
 
 .row-proof {
   font-size: 12px;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ---------- editors ---------- */
+
+.section-title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 21px;
+  letter-spacing: -.008em;
+  margin: 10px 0 4px;
+}
+
+.editors {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+form.edit {
+  display: flex;
+  flex-direction: column;
+}
+
+form.edit .card-note {
+  margin-bottom: 16px;
+}
+
+.edit-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+/* The one place red appears that is not a refusal — deleting a policy is the same
+   category of act, so it wears the same colour. */
+form.edit.danger-zone {
+  border-color: var(--stop);
+}
+
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  margin-bottom: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.field > span {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.field input {
+  background: var(--ground);
+  border: 1px solid var(--hair);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  padding: 9px 11px;
+  width: 100%;
+  transition: border-color 140ms ease;
+}
+
+.field input:hover {
+  border-color: var(--muted);
+}
+
+.field input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.field small {
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.hint {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.edit-ok {
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  color: var(--ok);
+}
+
+.edit-ok a {
   color: var(--muted);
   text-decoration: underline;
   text-underline-offset: 2px;

@@ -1,5 +1,6 @@
 import {arcTestnet} from "@tollgate/shared";
 import {ENGINE, OWNER, addressUrl, shortAddress} from "../lib/chain.ts";
+import {CreatePolicy} from "./CreatePolicy.tsx";
 import {ExternalIcon} from "./Icon.tsx";
 
 /**
@@ -50,12 +51,15 @@ export function NotConfigured() {
 
 export function NoPolicy() {
   return (
-    <section className="card">
-      <h2 className="card-title">No policy yet</h2>
-      <p className="card-note">
-        No policy exists for {shortAddress(OWNER)} on this contract. Seed one with{" "}
-        <code>forge script script/SeedDemo.s.sol:SeedDemo --broadcast</code>.
-      </p>
-    </section>
+    <>
+      <section className="card note-card">
+        <p className="prose">
+          No policy exists for <code>{shortAddress(OWNER)}</code> yet. Creating one takes
+          two transactions and about thirty seconds — you keep your money the whole time,
+          and nothing can move until you name an agent and a ceiling.
+        </p>
+      </section>
+      <CreatePolicy />
+    </>
   );
 }

@@ -3,6 +3,7 @@ import {ApprovalQueue} from "../../components/ApprovalQueue.tsx";
 import {ExternalIcon} from "../../components/Icon.tsx";
 import {NotConfigured, PageHead} from "../../components/PageHead.tsx";
 import {PayeeRow} from "../../components/PayeeRow.tsx";
+import {AddPayeeEditor} from "../../components/PolicyEditors.tsx";
 import {auditFor, owner, pendingApprovals} from "../../lib/data.ts";
 import {addressUrl, isConfigured} from "../../lib/chain.ts";
 
@@ -67,6 +68,8 @@ export default function PayeesPage() {
       <Suspense fallback={<div className="card empty">Loading requests&hellip;</div>}>
         <Requests />
       </Suspense>
+
+      <AddPayeeEditor />
 
       <Suspense fallback={<div className="card empty">Reading the allowlist from Arc&hellip;</div>}>
         <Allowlist />

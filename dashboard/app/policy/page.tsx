@@ -1,10 +1,19 @@
-import {availableNow, formatUsdc, formatUsdcApprox} from "@tollgate/shared";
+import {erc20Abi} from "viem";
+import {availableNow, formatUsdc, formatUsdcApprox, USDC_ADDRESS} from "@tollgate/shared";
 import {ExternalIcon} from "../../components/Icon.tsx";
 import {KillSwitch} from "../../components/KillSwitch.tsx";
 import {Meter} from "../../components/Meter.tsx";
 import {NoPolicy, NotConfigured, PageHead} from "../../components/PageHead.tsx";
+import {
+  AgentEditor,
+  AllowanceEditor,
+  CapsEditor,
+  ExpiryEditor,
+  RevokeEditor,
+  VelocityEditor,
+} from "../../components/PolicyEditors.tsx";
 import {owner, policyFor} from "../../lib/data.ts";
-import {addressUrl, isConfigured, shortAddress} from "../../lib/chain.ts";
+import {ENGINE, addressUrl, isConfigured, publicClient, shortAddress} from "../../lib/chain.ts";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +44,15 @@ export default async function PolicyPage() {
   }
 
   const headroom = availableNow(policy);
+
+  // The second ceiling. A policy whose allowance is below its budget refuses at the
+  // allowance, so showing one without the other would be a half-truth.
+  const allowance = (await publicClient.readContract({
+    address: USDC_ADDRESS,
+    abi: erc20Abi,
+    functionName: "allowance",
+    args: [owner, ENGINE],
+  })) as bigint;
 
   const rules = [
     {
@@ -113,6 +131,22 @@ export default async function PolicyPage() {
           </dl>
         </section>
       </div>
+
+      <section>
+        <h2 className="section-title">Change the policy</h2>
+        <p className="section-note">
+          Each of these is a transaction you sign, straight to the contract. The agent
+          cannot reach any of them.
+        </p>
+        <div className="editors">
+          <CapsEditor policy={policy} />
+          <VelocityEditor policy={policy} />
+          <AllowanceEditor allowance={allowance} budgetCap={policy.budgetCap} />
+          <ExpiryEditor policy={policy} />
+          <AgentEditor policy={policy} />
+          <RevokeEditor />
+        </div>
+      </section>
 
       <section className="card">
         <h2 className="card-title">The rules</h2>
