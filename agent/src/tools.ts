@@ -4,7 +4,7 @@ import {z} from "zod";
 import {isAddress, type Address} from "viem";
 import {fileRequest} from "./approvals.ts";
 import {SERVICES, findService} from "./marketplace.ts";
-import type {TollgateClient} from "./tollgate.ts";
+import {PaymentInFlightError, PaymentRevertedError, type TollgateClient} from "./tollgate.ts";
 
 /**
  * The tools the agent is given.
@@ -30,6 +30,36 @@ export type EventSink = (event: AgentEvent) => void;
 
 function text(body: string) {
   return {content: [{type: "text" as const, text: body}]};
+}
+
+/**
+ * Turn a submission failure into an instruction.
+ *
+ * A model handed a raw stack trace will do the reasonable-looking thing and try again.
+ * For an unresolved payment that is the one genuinely harmful move, so the unknown case
+ * says so in the first line and hands back the transaction hash to resolve instead.
+ */
+function explainSubmissionFailure(error: unknown): string {
+  if (error instanceof PaymentInFlightError) {
+    return (
+      `PAYMENT STATUS UNKNOWN. Do NOT retry this payment.\n` +
+      `It was submitted and had not confirmed when we stopped waiting, so it may still ` +
+      `settle. Retrying now is how the same invoice gets paid twice.\n` +
+      `Transaction: ${error.explorerUrl}\n` +
+      `Report this to the owner as unresolved and move on. Do not re-attempt it.`
+    );
+  }
+  if (error instanceof PaymentRevertedError) {
+    return (
+      `Payment failed on chain. Nothing was spent.\n` +
+      `The policy allowed it when checked, then changed before it executed — the owner ` +
+      `likely paused the agent or altered the policy in between.\n` +
+      `Transaction: ${error.explorerUrl}\n` +
+      `Re-check with check_budget before considering this again.`
+    );
+  }
+  const detail = error instanceof Error ? error.message : String(error);
+  return `Payment could not be submitted. Nothing was spent.\n${detail}`;
 }
 
 export function createTollgateTools(client: TollgateClient, owner: Address, emit: EventSink) {
@@ -114,7 +144,13 @@ export function createTollgateTools(client: TollgateClient, owner: Address, emit
         );
       }
 
-      const receipt = await client.spend(service.payee, service.price);
+      let receipt;
+      try {
+        receipt = await client.spend(service.payee, service.price);
+      } catch (error) {
+        return text(explainSubmissionFailure(error));
+      }
+
       emit({
         kind: "paid",
         label: service.name,
@@ -158,7 +194,13 @@ export function createTollgateTools(client: TollgateClient, owner: Address, emit
         return text(`REFUSED by policy. Reason: ${pre.reasonName}. ${pre.message}\nNothing was spent.`);
       }
 
-      const receipt = await client.spend(payee, value);
+      let receipt;
+      try {
+        receipt = await client.spend(payee, value);
+      } catch (error) {
+        return text(explainSubmissionFailure(error));
+      }
+
       emit({
         kind: "paid",
         label: `direct → ${payee}`,

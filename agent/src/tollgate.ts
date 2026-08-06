@@ -1,7 +1,9 @@
 import {
   arcTestnet,
+  MIN_GAS_PRICE_WEI,
   policyEngineAbi,
   Reason,
+  SUGGESTED_PRIORITY_FEE_WEI,
   explainToAgent,
   isRetryable,
   reasonName,
@@ -9,6 +11,51 @@ import {
 } from "@tollgate/shared";
 import {createPublicClient, createWalletClient, http, type Address, type Hex} from "viem";
 import {privateKeyToAccount} from "viem/accounts";
+
+/**
+ * The payment was submitted and we stopped waiting before it resolved.
+ *
+ * This is the outcome that has to be handled carefully, because it is the one that looks
+ * like a failure and is not. The transaction may still be in the mempool and may still
+ * land. Retrying on this error is how you pay twice.
+ *
+ * The only safe response is to resolve the original transaction — see `verify` — before
+ * deciding anything. Note that the policy caps still bound the damage of a double payment;
+ * this is about the agent's own bookkeeping being wrong, not about the leash failing.
+ */
+export class PaymentInFlightError extends Error {
+  readonly txHash: Hex;
+  readonly explorerUrl: string;
+
+  constructor(txHash: Hex, explorerUrl: string) {
+    super(
+      `Payment ${txHash} was submitted but did not confirm in time. It may still land. ` +
+        `Do not retry: verify this transaction first.`,
+    );
+    this.name = "PaymentInFlightError";
+    this.txHash = txHash;
+    this.explorerUrl = explorerUrl;
+  }
+}
+
+/**
+ * The payment was mined and reverted.
+ *
+ * Reaching this means policy changed between the pre-flight check and execution — the
+ * owner hit pause, revoked a payee, or spent the balance elsewhere in the intervening
+ * blocks. The check is advisory; only execution is authoritative. Nothing moved.
+ */
+export class PaymentRevertedError extends Error {
+  readonly txHash: Hex;
+  readonly explorerUrl: string;
+
+  constructor(txHash: Hex, explorerUrl: string) {
+    super(`Payment ${txHash} was mined but reverted. Nothing moved. Policy changed under it.`);
+    this.name = "PaymentRevertedError";
+    this.txHash = txHash;
+    this.explorerUrl = explorerUrl;
+  }
+}
 
 /**
  * The Tollgate client — the surface an agent framework integrates against.
@@ -89,28 +136,93 @@ export class TollgateClient {
   }
 
   /**
+   * Fees that clear Arc's floor.
+   *
+   * Arc enforces a minimum base fee of 20 Gwei, and the documentation is explicit that a
+   * transaction submitted under it "may remain pending indefinitely or fail outright".
+   * That is the single most likely cause of a stuck payment here, so the floor is applied
+   * rather than trusted to the estimator: whatever the node suggests, we never bid below
+   * it. The doubling is headroom for a base-fee rise between estimating and inclusion.
+   */
+  async #fees(): Promise<{maxFeePerGas: bigint; maxPriorityFeePerGas: bigint}> {
+    const [block, suggested] = await Promise.all([
+      this.#publicClient.getBlock({blockTag: "latest"}),
+      this.#publicClient
+        .estimateMaxPriorityFeePerGas()
+        .catch(() => SUGGESTED_PRIORITY_FEE_WEI),
+    ]);
+
+    const base = block.baseFeePerGas ?? MIN_GAS_PRICE_WEI;
+    const floored = base > MIN_GAS_PRICE_WEI ? base : MIN_GAS_PRICE_WEI;
+    const priority =
+      suggested > SUGGESTED_PRIORITY_FEE_WEI ? suggested : SUGGESTED_PRIORITY_FEE_WEI;
+
+    return {maxFeePerGas: floored * 2n + priority, maxPriorityFeePerGas: priority};
+  }
+
+  /**
    * Attempt the payment.
    *
-   * Throws on refusal — the contract reverts with `PolicyViolation(reason)` and nothing
-   * moves. Use `check` first if you want the reason without spending gas on a revert.
+   * Three failure shapes, deliberately distinct, because the correct response differs:
+   *
+   *   - Refused up front. The simulation reverts with `PolicyViolation(reason)`, no
+   *     transaction is ever sent, and nothing is spent — not even gas.
+   *   - `PaymentRevertedError`. Mined, reverted, nothing moved. Safe to reassess.
+   *   - `PaymentInFlightError`. Submitted, unresolved. NOT safe to retry.
+   *
+   * Collapsing the last two into one error is the dangerous simplification: one means the
+   * money definitely did not move, the other means we do not know.
    */
-  async spend(payee: Address, amount: bigint): Promise<SpendResult> {
+  async spend(payee: Address, amount: bigint, timeoutMs = 90_000): Promise<SpendResult> {
+    // Fees are settled before simulating so the simulated transaction and the submitted
+    // one are the same shape, rather than the second being the first plus an override.
+    const fees = await this.#fees();
+
     const {request, result} = await this.#publicClient.simulateContract({
       address: this.engine,
       abi: policyEngineAbi,
       functionName: "spend",
       args: [payee, amount],
       account: this.#account,
+      ...fees,
     });
 
     const txHash = await this.#walletClient.writeContract(request);
-    await this.#publicClient.waitForTransactionReceipt({hash: txHash});
+    const explorerUrl = `${arcTestnet.blockExplorers.default.url}/tx/${txHash}`;
 
-    return {
-      txHash,
-      explorerUrl: `${arcTestnet.blockExplorers.default.url}/tx/${txHash}`,
-      spentTotal: result as bigint,
-    };
+    let receipt;
+    try {
+      receipt = await this.#publicClient.waitForTransactionReceipt({
+        hash: txHash,
+        timeout: timeoutMs,
+      });
+    } catch {
+      // Everything that lands here is "we stopped watching", never "it failed".
+      throw new PaymentInFlightError(txHash, explorerUrl);
+    }
+
+    // Simulation passed, so a revert here means state moved under us between the two.
+    if (receipt.status !== "success") throw new PaymentRevertedError(txHash, explorerUrl);
+
+    return {txHash, explorerUrl, spentTotal: result as bigint};
+  }
+
+  /**
+   * Resolve a payment whose outcome is unknown.
+   *
+   * The counterpart to `PaymentInFlightError`, and the only correct thing to call after
+   * one. Answers the sole question that matters — did this move money — from chain rather
+   * than from anything we remember.
+   */
+  async verify(txHash: Hex): Promise<{settled: boolean; succeeded: boolean}> {
+    try {
+      const receipt = await this.#publicClient.getTransactionReceipt({hash: txHash});
+      return {settled: true, succeeded: receipt.status === "success"};
+    } catch {
+      // No receipt yet: still pending, or dropped from the mempool. Either way unresolved,
+      // and reporting "did not happen" here would be a guess presented as a fact.
+      return {settled: false, succeeded: false};
+    }
   }
 
   /** The policy governing this agent, as stored on chain. */
