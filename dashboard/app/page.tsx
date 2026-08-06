@@ -1,89 +1,93 @@
-import {Suspense, cache} from "react";
+import {Suspense} from "react";
+import Link from "next/link";
 import type {Address} from "viem";
-import {arcTestnet, availableNow, formatUsdc, formatUsdcApprox, type Policy} from "@tollgate/shared";
-import {ApprovalQueue} from "../components/ApprovalQueue.tsx";
+import {availableNow, formatUsdc, formatUsdcApprox} from "@tollgate/shared";
 import {Feed} from "../components/Feed.tsx";
-import {ExternalIcon} from "../components/Icon.tsx";
-import {KillSwitch} from "../components/KillSwitch.tsx";
-import {LiveRefresh} from "../components/LiveRefresh.tsx";
 import {Meter} from "../components/Meter.tsx";
-import {SkeletonFacts, SkeletonFeed} from "../components/Skeleton.tsx";
+import {NoPolicy, NotConfigured, PageHead} from "../components/PageHead.tsx";
+import {SkeletonFeed, SkeletonTiles} from "../components/Skeleton.tsx";
+import {SpendChart, type SpendPoint} from "../components/SpendChart.tsx";
+import {StatTile} from "../components/StatTile.tsx";
 import {Verdict} from "../components/Verdict.tsx";
-import {readAuditLog} from "../lib/activity.ts";
-import {listPending} from "../lib/approvals.ts";
-import {ENGINE, OWNER, abi, addressUrl, isConfigured, publicClient, shortAddress} from "../lib/chain.ts";
+import {auditFor, owner, policyFor} from "../lib/data.ts";
+import {isConfigured} from "../lib/chain.ts";
 
-// Always read fresh. A cached view of a spend limit is a wrong view of a spend limit.
 export const dynamic = "force-dynamic";
 
 /**
- * One log walk per request, shared by both streamed sections.
- *
- * The leash card needs two counts out of the audit log and the feed needs all of it. Left
- * alone that is two independent walks of the same history; `cache` collapses them into one
- * for the life of a single request, and no longer.
+ * Everything below needs the log walk, so it streams as one unit behind a skeleton while
+ * the caps — which need only `getPolicy` — paint immediately.
  */
-const auditFor = cache(readAuditLog);
-
-function NotConfigured() {
-  return (
-    <main className="wrap">
-      <section className="card">
-        <h2 className="card-title">Not configured</h2>
-        <p className="card-note">
-          Set <code>POLICY_ENGINE_ADDRESS</code> and <code>OWNER_ADDRESS</code> in the
-          repository-root <code>.env</code>, then reload.
-        </p>
-      </section>
-    </main>
-  );
-}
-
-/**
- * The two facts that can only come from the log walk.
- *
- * Split out so the rest of the leash — the caps the contract actually enforces — paints
- * from the single `getPolicy` call without waiting on seven `eth_getLogs` round trips.
- */
-async function LeashFacts({owner}: {owner: Address}) {
-  const audit = await auditFor(owner);
+async function SpendSection({owner: who, budgetCap}: {owner: Address; budgetCap: bigint}) {
+  const audit = await auditFor(who);
   const payments = audit.entries.filter((entry) => entry.kind === "paid");
+
+  // Oldest first for the chart; the feed reads newest first.
+  const points: SpendPoint[] = payments
+    .filter((entry) => entry.timestamp > 0 && entry.spentTotal !== undefined)
+    .map((entry) => ({
+      timestamp: entry.timestamp,
+      total: entry.spentTotal!,
+      amount: entry.amount ?? 0n,
+      txHash: entry.txHash,
+    }))
+    .reverse();
+
+  const moved = payments.reduce((sum, entry) => sum + (entry.amount ?? 0n), 0n);
+  const largest = payments.reduce((max, entry) => ((entry.amount ?? 0n) > max ? entry.amount! : max), 0n);
+
   return (
     <>
-      <dt>approved payees</dt>
-      <dd>{audit.allowedPayees.length}</dd>
-      <dt>payments made</dt>
-      <dd>{payments.length}</dd>
+      <div className="tiles">
+        <StatTile
+          label="payments allowed"
+          value={String(payments.length)}
+          context="every one checked on chain first"
+        />
+        <StatTile label="total moved" value={formatUsdc(moved)} context="from the owner's own wallet" />
+        <StatTile
+          label="largest single"
+          value={payments.length ? formatUsdc(largest) : "—"}
+          context="the per-payment cap was never exceeded"
+        />
+        <StatTile
+          label="approved payees"
+          value={String(audit.allowedPayees.length)}
+          context="nobody else can be paid"
+        />
+      </div>
+
+      <section className="card">
+        <h2 className="card-title">Spend against the ceiling</h2>
+        <p className="card-note">
+          Cumulative, from <code>Spent</code> events. The steps are the payments — nothing
+          moves between them.
+        </p>
+        <SpendChart points={points} budgetCap={budgetCap} />
+      </section>
+
+      <Feed entries={audit.entries} limit={8} more />
     </>
   );
 }
 
-async function ActivitySection({owner}: {owner: Address}) {
-  const audit = await auditFor(owner);
-  return <Feed entries={audit.entries} />;
-}
-
 export default async function Page() {
-  if (!isConfigured()) return <NotConfigured />;
+  if (!isConfigured()) {
+    return (
+      <>
+        <PageHead title="Overview" lede="Agent spend control on Arc." />
+        <NotConfigured />
+      </>
+    );
+  }
 
-  const [policyRaw, pending] = await Promise.all([
-    publicClient.readContract({address: ENGINE, abi, functionName: "getPolicy", args: [OWNER]}),
-    listPending(),
-  ]);
-
-  const policy = policyRaw as unknown as Policy;
-
+  const policy = await policyFor(owner);
   if (!policy.exists) {
     return (
-      <main className="wrap">
-        <section className="card">
-          <h2 className="card-title">No policy yet</h2>
-          <p className="card-note">
-            No policy exists for {shortAddress(OWNER)} on this contract. Seed one with{" "}
-            <code>forge script script/SeedDemo.s.sol:SeedDemo --broadcast</code>.
-          </p>
-        </section>
-      </main>
+      <>
+        <PageHead title="Overview" lede="Agent spend control on Arc." />
+        <NoPolicy />
+      </>
     );
   }
 
@@ -91,87 +95,58 @@ export default async function Page() {
 
   return (
     <>
-      <header className="mast">
-        <div className="mast-inner">
-          <div>
-            <p className="eyebrow">Agent spend control · Arc testnet</p>
-            <h1 className="wordmark">Tollgate</h1>
-          </div>
-          <div className="mast-meta">
-            <LiveRefresh />
-            <div>
-              policy{" "}
-              <a href={addressUrl(ENGINE)} target="_blank" rel="noreferrer">
-                {shortAddress(ENGINE)} <ExternalIcon size={11} />
-              </a>
-            </div>
-            <div>
-              owner{" "}
-              <a href={addressUrl(OWNER)} target="_blank" rel="noreferrer">
-                {shortAddress(OWNER)} <ExternalIcon size={11} />
-              </a>
-            </div>
-            <div>chain {arcTestnet.id}</div>
-          </div>
-        </div>
-      </header>
+      <PageHead
+        title="Overview"
+        lede="What your agent has spent, and what the contract will still let it spend."
+      />
 
-      <main className="wrap">
-        <Verdict policy={policy} />
+      <Verdict policy={policy} />
 
-        <div className="grid grid-2">
-          <section className="card">
-            <h2 className="card-title">This agent&rsquo;s leash</h2>
-            <p className="card-note">
-              Enforced in the contract, not in the agent. It cannot change any of this.
-            </p>
+      <div className="grid grid-2">
+        <section className="card">
+          <h2 className="card-title">This agent&rsquo;s leash</h2>
+          <p className="card-note">
+            Enforced in the contract, not in the agent. It cannot change any of this.{" "}
+            <Link href="/policy">Full policy →</Link>
+          </p>
 
-            <Meter
-              label="budget used"
-              value={policy.spent}
-              total={policy.budgetCap}
-              sense="used"
-              caption={`${formatUsdc(policy.budgetCap - policy.spent)} left of the lifetime budget`}
-            />
-            <Meter
-              label="rate headroom"
-              value={headroom}
-              total={policy.bucketCapacity}
-              sense="remaining"
-              caption={`refills at about ${formatUsdcApprox(policy.refillPerSecond * 86_400n)} a day`}
-            />
+          <Meter
+            label="budget used"
+            value={policy.spent}
+            total={policy.budgetCap}
+            sense="used"
+            caption={`${formatUsdc(policy.budgetCap - policy.spent)} left of the lifetime budget`}
+          />
+          <Meter
+            label="rate headroom"
+            value={headroom}
+            total={policy.bucketCapacity}
+            sense="remaining"
+            caption={`refills at about ${formatUsdcApprox(policy.refillPerSecond * 86_400n)} a day`}
+          />
+        </section>
 
-            <dl className="facts" style={{marginTop: 20}}>
-              <dt>agent key</dt>
-              <dd>
-                <a href={addressUrl(policy.agent)} target="_blank" rel="noreferrer">
-                  {shortAddress(policy.agent)}
-                </a>
-              </dd>
-              <dt>per payment</dt>
-              <dd>{formatUsdc(policy.perTxCap)}</dd>
-              <dt>expires</dt>
-              <dd>
-                {policy.expiry === 0n
-                  ? "never"
-                  : new Date(Number(policy.expiry) * 1000).toLocaleDateString()}
-              </dd>
-              <Suspense fallback={<SkeletonFacts />}>
-                <LeashFacts owner={OWNER} />
-              </Suspense>
-            </dl>
-          </section>
+        <section className="card">
+          <h2 className="card-title">Why this is different</h2>
+          <p className="card-note">
+            The limits above are not settings this app obeys. They are conditions in a
+            contract at{" "}
+            <code>0x7Fa8…376D</code> that every payment must satisfy before any money
+            moves.
+          </p>
+          <p className="prose">
+            An agent with a stolen key, a jailbroken prompt, or a bug still cannot exceed
+            them — there is no code path from the agent to a payment that skips the check.
+            That is the entire claim, and the{" "}
+            <Link href="/activity">activity log</Link> is the evidence: every row links to
+            the transaction on ArcScan.
+          </p>
+        </section>
+      </div>
 
-          <div className="stack">
-            <KillSwitch paused={policy.paused} />
-            <ApprovalQueue requests={pending} />
-          </div>
-        </div>
-
-        <Suspense fallback={<SkeletonFeed />}>
-          <ActivitySection owner={OWNER} />
-        </Suspense>
-      </main>
+      <Suspense fallback={<SkeletonTiles />}>
+        <SpendSection owner={owner} budgetCap={policy.budgetCap} />
+      </Suspense>
     </>
   );
 }

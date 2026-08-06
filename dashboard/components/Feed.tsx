@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {formatUsdc} from "@tollgate/shared";
 import {describe, type Activity} from "../lib/activity.ts";
 import {shortAddress, txUrl} from "../lib/chain.ts";
@@ -29,7 +30,17 @@ function when(timestamp: number): string {
  * Written in plain English rather than event names, per §5.1: an owner reading this should
  * not need to know what a `PayeeSet` is.
  */
-export function Feed({entries}: {entries: Activity[]}) {
+export function Feed({
+  entries,
+  limit = 40,
+  more = false,
+}: {
+  entries: Activity[];
+  /** How many rows to render. The overview shows a window; Activity shows the log. */
+  limit?: number;
+  /** Offer a link to the full log, for the windowed case. */
+  more?: boolean;
+}) {
   if (entries.length === 0) {
     return (
       <section className="card">
@@ -42,13 +53,13 @@ export function Feed({entries}: {entries: Activity[]}) {
 
   return (
     <section className="card">
-      <h2 className="card-title">Activity</h2>
+      <h2 className="card-title">{more ? "Recent activity" : "Activity"}</h2>
       <p className="card-note">
         Every payment and policy change, read from Arc at page load. Nothing is stored here.
       </p>
 
       <div className="feed">
-        {entries.slice(0, 40).map((entry) => {
+        {entries.slice(0, limit).map((entry) => {
           const stopped = entry.kind === "paused" || entry.kind === "payee-removed";
           const neutral = entry.kind === "policy-created" || entry.kind === "resumed";
           const rowClass = stopped ? "feed-row stopped" : neutral ? "feed-row neutral" : "feed-row";
@@ -83,6 +94,14 @@ export function Feed({entries}: {entries: Activity[]}) {
           );
         })}
       </div>
+
+      {more && entries.length > limit ? (
+        <p className="card-more">
+          <Link href="/activity">
+            All {entries.length} events <ExternalIcon size={11} />
+          </Link>
+        </p>
+      ) : null}
     </section>
   );
 }

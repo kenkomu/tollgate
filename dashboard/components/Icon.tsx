@@ -108,3 +108,33 @@ export function PulseIcon(props: IconProps) {
     </Svg>
   );
 }
+
+/** Navigation: the audit log. */
+export function ActivityIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M4 6h16M4 12h16M4 18h10" />
+    </Svg>
+  );
+}
+
+/** Navigation: who may be paid. */
+export function PayeeIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="10" cy="8" r="3.4" />
+      <path d="M4 19c0-3 2.7-5 6-5s6 2 6 5" />
+      <path d="m16.5 9.5 1.6 1.6 3.2-3.2" />
+    </Svg>
+  );
+}
+
+/** Navigation: the caps themselves. */
+export function PolicyIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="4" y="3" width="16" height="18" rx="2" />
+      <path d="M8 8h8M8 12h8M8 16h5" />
+    </Svg>
+  );
+}

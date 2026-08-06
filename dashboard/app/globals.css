@@ -25,12 +25,21 @@
   --ok: #4fa985;
   --ok-soft: #12241d;
 
+  /* Chart marks are their own step, not the UI accent. Snapped to the OKLCH lightness
+     band and chroma floor for data marks on this surface (validated: L 0.657, C 0.129,
+     5.36:1) — a colour that works as small text is not automatically one that works as
+     a 2px line. */
+  --series: #bf8420;
+
   /* Reserved. Blocked and kill only. Lifted from #ce5f57, which measured 4.43:1 on the
      card surface — under AA, on the one colour that must never be missed. */
   --stop: #d66b62;
   --stop-soft: #2a1413;
 
-  --radius: 3px;
+  /* Softened from 3px. The sharp editorial corner read as a document; this is a console
+     you operate. Chips and buttons stay tighter so they still read as controls. */
+  --radius: 10px;
+  --radius-sm: 5px;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 10px 30px -14px rgb(0 0 0 / 0.7);
 
   --font-display: Georgia, "Iowan Old Style", "Times New Roman", serif;
@@ -60,6 +69,7 @@
     --accent-soft: #f6ecd9;
     --ok: #286b52;
     --ok-soft: #e4f0ea;
+    --series: #92600f;
     --stop: #9c332c;
     --stop-soft: #fbe6e3;
     --shadow: 0 1px 2px rgb(17 24 26 / 0.06), 0 8px 24px -12px rgb(17 24 26 / 0.18);
@@ -103,27 +113,47 @@ a {
   padding: 0 24px 96px;
 }
 
-/* ---------- masthead ---------- */
+/* ---------- shell ---------- */
 
-header.mast {
-  border-bottom: 1px solid var(--hair);
-  margin-bottom: 32px;
+/*
+ * A rail, not a top bar. The four sections are peers — any of them can be why the page
+ * was opened — and a rail keeps all four reachable from every screen without spending
+ * vertical space that the data wants.
+ */
+.shell {
+  display: grid;
+  grid-template-columns: 1fr;
+  min-height: 100vh;
 }
 
-.mast-inner {
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: 30px 24px 24px;
+@media (min-width: 900px) {
+  .shell {
+    grid-template-columns: 236px 1fr;
+  }
+}
+
+.rail {
+  border-bottom: 1px solid var(--hair);
+  padding: 20px;
   display: flex;
-  flex-wrap: wrap;
-  gap: 24px;
-  align-items: flex-end;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 22px;
+}
+
+@media (min-width: 900px) {
+  .rail {
+    border-bottom: 0;
+    border-right: 1px solid var(--hair);
+    padding: 28px 20px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
 }
 
 .wordmark {
   font-family: var(--font-display);
-  font-size: 30px;
+  font-size: 26px;
   font-weight: 400;
   letter-spacing: -0.015em;
   margin: 0;
@@ -131,27 +161,131 @@ header.mast {
 
 .eyebrow {
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 10px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--accent);
-  margin: 0 0 8px;
+  margin: 0 0 5px;
 }
 
-.mast-meta {
-  font-family: var(--font-mono);
+.rail-links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+@media (min-width: 900px) {
+  .rail-links {
+    flex-direction: column;
+    flex-wrap: nowrap;
+  }
+}
+
+.rail-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  border-radius: var(--radius-sm);
+  color: var(--ink-2);
+  text-decoration: none;
+  font-size: 13.5px;
+  border-left: 2px solid transparent;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.rail-link:hover {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+/* State is carried by the bar and the weight, not by hue alone. */
+.rail-link.active {
+  background: var(--surface);
+  border-left-color: var(--accent);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.rail-foot {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.rail-note {
+  margin: 0;
   font-size: 11.5px;
+  line-height: 1.55;
   color: var(--muted);
-  text-align: right;
-  line-height: 1.8;
 }
 
-.mast-meta a {
+@media (max-width: 899px) {
+  .rail-note {
+    display: none;
+  }
+}
+
+.content {
+  min-width: 0;
+  padding: 26px 24px 80px;
+}
+
+/* ---------- page header ---------- */
+
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px 32px;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+
+.page-title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 27px;
+  letter-spacing: -0.015em;
+  margin: 0 0 4px;
+}
+
+.page-lede {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13.5px;
+  max-width: 60ch;
+}
+
+.page-meta {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 2px 12px;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.page-meta dt {
+  text-align: right;
+}
+
+.page-meta dd {
+  margin: 0;
+}
+
+.page-meta a {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
-.mast-meta a:hover {
+.page-meta a:hover {
   color: var(--accent);
 }
 
@@ -680,6 +814,282 @@ a:focus-visible,
   border-radius: 2px;
 }
 
+/* ---------- KPI tiles ---------- */
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.tile {
+  background: var(--surface);
+  border: 1px solid var(--hair);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+}
+
+.tile-label {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.tile-value {
+  margin: 8px 0 6px;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  font-variant-numeric: tabular-nums;
+}
+
+.tile-value.ok {
+  color: var(--ok);
+}
+
+.tile-value.stop {
+  color: var(--stop);
+}
+
+/* A bare number with a label is a trivia question; this is the answer to "so what". */
+.tile-context {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+/* ---------- chart ---------- */
+
+.chart-wrap {
+  position: relative;
+  margin-top: 4px;
+}
+
+.chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.chart-grid,
+.chart-axis {
+  stroke: var(--hair);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart-axis {
+  stroke: var(--muted);
+  opacity: 0.5;
+}
+
+/* Dashed because it is a threshold. The solid hairlines above are the grid, and keeping
+   the two distinct is what lets the dash carry meaning. */
+.chart-cap {
+  stroke: var(--stop);
+  stroke-width: 1;
+  stroke-dasharray: 5 4;
+  opacity: 0.75;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart-line {
+  fill: none;
+  stroke: var(--series);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart-area {
+  fill: var(--series);
+  opacity: 0.1;
+  stroke: none;
+}
+
+.chart-dot {
+  fill: var(--series);
+  /* A ring in the surface colour, not a border, so overlapping marks stay separable. */
+  stroke: var(--surface);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  transition: r 120ms ease;
+}
+
+.chart-crosshair {
+  stroke: var(--muted);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart-cap-label,
+.chart-end-label {
+  position: absolute;
+  right: 0;
+  /* `top` is set inline from the plot geometry; this centres the text on that line. */
+  transform: translateY(-50%);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  background: var(--surface);
+  padding-left: 6px;
+}
+
+.chart-cap-label {
+  color: var(--stop);
+}
+
+.chart-end-label {
+  color: var(--series);
+  font-weight: 700;
+}
+
+.chart-tip {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  background: var(--ground);
+  border: 1px solid var(--hair);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  white-space: nowrap;
+  box-shadow: var(--shadow);
+  z-index: 2;
+}
+
+.chart-tip strong {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-tip span {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.chart-x {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--muted);
+  margin-top: -14px;
+}
+
+/* ---------- rules table ---------- */
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table.rules {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 520px;
+}
+
+table.rules th,
+table.rules td {
+  text-align: left;
+  padding: 11px 14px 11px 0;
+  border-bottom: 1px solid var(--hair);
+  vertical-align: top;
+}
+
+table.rules thead th {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+table.rules tbody th {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+table.rules tbody tr:last-child th,
+table.rules tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.muted-cell {
+  color: var(--muted);
+}
+
+/* ---------- payee rows ---------- */
+
+.rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--hair);
+}
+
+.row:last-child {
+  border-bottom: 0;
+}
+
+.row.muted {
+  opacity: 0.55;
+}
+
+.row-proof {
+  font-size: 12px;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ---------- prose ---------- */
+
+.prose {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--ink-2);
+  max-width: 74ch;
+}
+
+.note-card {
+  margin-bottom: 18px;
+  border-left: 2px solid var(--accent);
+}
+
+.card-more {
+  margin: 14px 0 0;
+  font-size: 12.5px;
+}
+
+.card-more a,
+.card-note a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 /* ---------- small screens ---------- */
 
 @media (max-width: 620px) {
@@ -687,21 +1097,25 @@ a:focus-visible,
     font-size: 14.5px;
   }
 
-  .wrap {
-    padding: 0 16px 64px;
+  .wrap,
+  .content {
+    padding: 20px 16px 64px;
   }
 
-  .mast-inner {
-    padding: 22px 16px 18px;
+  .page-head {
     align-items: flex-start;
   }
 
-  .mast-meta {
-    text-align: left;
+  .page-meta {
+    grid-template-columns: auto auto;
   }
 
   .wordmark {
-    font-size: 25px;
+    font-size: 23px;
+  }
+
+  .tile-value {
+    font-size: 22px;
   }
 
   .verdict {

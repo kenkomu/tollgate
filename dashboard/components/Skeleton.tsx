@@ -35,6 +35,29 @@ export function SkeletonFeed() {
   );
 }
 
+/** The KPI strip and the chart, which arrive together with the log walk. */
+export function SkeletonTiles() {
+  return (
+    <>
+      <div className="tiles" aria-busy="true" aria-live="polite">
+        {[0, 1, 2, 3].map((tile) => (
+          <div className="tile" key={tile}>
+            <span className="shimmer" style={{width: 84, height: 10}} />
+            <span className="shimmer" style={{width: 64, height: 24, margin: "10px 0 8px"}} />
+            <span className="shimmer" style={{width: 120, height: 10}} />
+          </div>
+        ))}
+      </div>
+      <section className="card" aria-busy="true">
+        <h2 className="card-title">Spend against the ceiling</h2>
+        <p className="card-note">Reading the log from Arc&hellip;</p>
+        <span className="shimmer" style={{width: "100%", height: 200}} />
+      </section>
+      <SkeletonFeed />
+    </>
+  );
+}
+
 /** The two facts on the leash card that can only come from the log walk. */
 export function SkeletonFacts() {
   return (
