@@ -167,6 +167,10 @@ header.mast {
 @media (min-width: 920px) {
   .grid-2 {
     grid-template-columns: 1.15fr 1fr;
+    /* Cards size to their content. Stretching the shorter column to match the taller one
+       leaves a panel that is mostly empty, which reads as missing data rather than as
+       alignment. */
+    align-items: start;
   }
 }
 

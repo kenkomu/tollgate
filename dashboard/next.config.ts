@@ -9,6 +9,10 @@ const nextConfig: NextConfig = {
   // Don't generate AGENTS.md / CLAUDE.md into this package — repo-level guidance lives
   // at the root, and duplicating it per-workspace invites the two to drift.
   agentRules: false,
+
+  // No floating dev badge. This page gets demoed and screenshotted from the dev server,
+  // and a framework logo in the corner is the one pixel nobody meant to show.
+  devIndicators: false,
 };
 
 export default nextConfig;
