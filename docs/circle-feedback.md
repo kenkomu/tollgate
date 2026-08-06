@@ -117,6 +117,44 @@ hard-fork name only.
 
 ---
 
+## 6. `eth_estimateGas` leaves under 1% of headroom on a USDC transfer
+
+**Impact:** payments fail intermittently, with no readable reason.
+
+Measured on Arc testnet, on a contract that pulls USDC via `transferFrom`:
+
+| | |
+|---|---|
+| `eth_estimateGas` returned | **97,846** |
+| Execution actually needed | **96,931** |
+| Headroom | **0.9%** |
+
+That gap is closed by any small state difference between estimating and executing — a
+storage slot that was cold at estimate time and warm at execution, or the reverse. We hit
+it with three concurrent payments: two settled, the third reverted having consumed 96,931
+of its 97,846 limit. Re-sent by hand with a 200,000 limit, the identical call succeeded
+using 96,879.
+
+Tracing the failure showed it dying inside USDC's own `transferFrom`, at a
+`isBlocklisted()` staticcall to the precompile at `0x1800…0001`. We suspect the estimator
+does not fully account for that path, though we could not confirm it — Foundry's local EVM
+does not implement the precompile, so a replay cannot reproduce the on-chain behaviour.
+
+**Why this is worse than a normal out-of-gas.** Our contract emits `Spent` *before* calling
+`transferFrom`. When the transfer runs out of gas the whole transaction reverts, the event
+is discarded, and what the operator sees is a payment that vanished with a bare "reverted"
+and no reason code. It looks like a contract bug and is not one.
+
+**What we did:** buffer every estimate by 30% (`GAS_BUFFER_PERCENT` in `shared/src/chain.ts`).
+Unused gas is refunded, so over-buffering costs nothing and under-buffering costs a payment.
+
+**Suggestion:** either widen the estimator's margin on transfers that touch the
+blocklist precompile, or document that clients must add their own buffer on Arc. Most
+wallet libraries — viem included — use the returned estimate verbatim, so the default
+behaviour of the obvious code is a payment that fails roughly whenever the state moves.
+
+---
+
 ## What worked well
 
 - **USDC as native gas is genuinely clarifying.** One asset for fees and value removes an

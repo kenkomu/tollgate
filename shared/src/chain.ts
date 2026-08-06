@@ -164,6 +164,26 @@ export async function arcFees(client: {
   return {maxFeePerGas: floored * 2n + priority, maxPriorityFeePerGas: priority};
 }
 
+/**
+ * Headroom to add to Arc's gas estimate before submitting.
+ *
+ * `eth_estimateGas` on Arc comes back with under 1% of margin on a USDC transfer, and it
+ * is not enough. Measured on a live payment: the estimate was 97,846 and execution needed
+ * 96,931 — a 0.9% gap that a single warm/cold storage difference between estimating and
+ * executing closes entirely. The failure is nasty because it does not look like one:
+ * `Spent` has already been emitted when the transfer runs out of gas, so the whole
+ * transaction reverts, the event is discarded, and the payment simply vanishes with a bare
+ * "reverted" and no reason.
+ *
+ * The cost of over-buffering is nothing — unused gas is refunded. The cost of
+ * under-buffering is a payment that fails for reasons no one can see.
+ */
+export const GAS_BUFFER_PERCENT = 30n;
+
+export function withGasBuffer(estimate: bigint): bigint {
+  return (estimate * (100n + GAS_BUFFER_PERCENT)) / 100n;
+}
+
 export const FAUCET_URL = "https://faucet.circle.com";
 
 export function explorerTx(hash: string): string {

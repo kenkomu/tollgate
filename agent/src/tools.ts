@@ -5,9 +5,11 @@ import {isAddress, type Address} from "viem";
 import {fileRequest} from "./approvals.ts";
 import {SERVICES, findService} from "./marketplace.ts";
 import {
+  GasExhaustedError,
   PaymentInFlightError,
   PaymentRevertedError,
   PolicyRefusedError,
+  VelocityWaitTooLongError,
   type TollgateClient,
 } from "./tollgate.ts";
 
@@ -54,6 +56,21 @@ function text(body: string) {
  * says so in the first line and hands back the transaction hash to resolve instead.
  */
 function explainSubmissionFailure(error: unknown): string {
+  if (error instanceof GasExhaustedError) {
+    return (
+      `CANNOT SUBMIT — the agent key is out of gas.\n` +
+      `${error.message}\n` +
+      `This is not a spending limit. Nothing you do with amounts or payees will fix it; ` +
+      `report it to the owner and stop trying to pay for things.`
+    );
+  }
+  if (error instanceof VelocityWaitTooLongError) {
+    return (
+      `Rate limit — nothing was submitted, and nothing was spent.\n` +
+      `${error.message}\n` +
+      `This one is genuinely retryable, unlike most refusals. Do other work and come back.`
+    );
+  }
   if (error instanceof PolicyRefusedError) {
     return (
       `${error.message}\n` +
@@ -243,6 +260,60 @@ export function createTollgateTools(client: TollgateClient, owner: Address, emit
     },
   );
 
+  const resolvePayment = tool(
+    "resolve_payment",
+    "Resolve a payment whose outcome is UNKNOWN — one that reported PAYMENT STATUS " +
+      "UNKNOWN. Reads the chain and, if it is genuinely stuck, replaces it at the same " +
+      "nonce so it either lands or is cancelled. Never creates a second payment.",
+    {
+      txHash: z.string().describe("The transaction hash from the unknown-status report"),
+      mode: z
+        .enum(["speed-up", "cancel"])
+        .describe("speed-up if the payment should still happen, cancel if it should not"),
+    },
+    async ({txHash, mode}) => {
+      if (!/^0x[0-9a-fA-F]{64}$/.test(txHash)) return text(`Not a transaction hash: ${txHash}`);
+      try {
+        const outcome = await client.unstick(txHash as `0x${string}`, mode);
+        if (outcome.outcome === "already-settled") {
+          return text(
+            outcome.succeeded
+              ? `Resolved: that payment DID settle. It is done — do not send it again.`
+              : `Resolved: that transaction was mined and failed. Nothing moved. Safe to reassess.`,
+          );
+        }
+        return text(
+          `Replaced at the same nonce, so there is still only one payment.\n` +
+            `${mode === "cancel" ? "Cancelled" : "Resubmitted at a higher fee"}: ${outcome.explorerUrl}`,
+        );
+      } catch (error) {
+        return text(explainSubmissionFailure(error));
+      }
+    },
+  );
+
+  const checkGas = tool(
+    "check_gas",
+    "Check whether the agent's own key can still pay transaction fees. This is separate " +
+      "from the owner's spending budget — running out stops everything and is not a " +
+      "policy refusal.",
+    {},
+    async () => {
+      const health = await client.gasHealth();
+      return text(
+        [
+          `Agent gas balance: ${fromUsdc(health.balance / 1_000_000_000_000n)} USDC (approx)`,
+          `Payments this affords: about ${health.paymentsLeft}`,
+          health.empty
+            ? `EMPTY — you cannot submit anything. Tell the owner to fund the agent key.`
+            : health.low
+              ? `LOW — still working, but tell the owner before it runs out mid-task.`
+              : `Healthy.`,
+        ].join("\n"),
+      );
+    },
+  );
+
   const requestPayeeApproval = tool(
     "request_payee_approval",
     "Ask the human owner to add a payee to the allowlist. This is the ONLY way past a " +
@@ -272,5 +343,13 @@ export function createTollgateTools(client: TollgateClient, owner: Address, emit
     },
   );
 
-  return [listServices, checkBudget, payService, payAddress, requestPayeeApproval];
+  return [
+    listServices,
+    checkBudget,
+    checkGas,
+    payService,
+    payAddress,
+    resolvePayment,
+    requestPayeeApproval,
+  ];
 }
