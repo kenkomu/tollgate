@@ -3,6 +3,7 @@
 import {useState, useTransition} from "react";
 import {setPaused} from "../lib/owner.ts";
 import {txUrl} from "../lib/chain.ts";
+import {ExternalIcon, ShieldIcon, StopIcon} from "./Icon.tsx";
 
 /**
  * The kill switch.
@@ -41,6 +42,7 @@ export function KillSwitch({paused}: {paused: boolean}) {
           onClick={toggle}
           disabled={pending}
         >
+          {paused ? <ShieldIcon size={13} /> : <StopIcon size={13} />}
           {pending ? "Signing…" : paused ? "Resume agent" : "Stop everything"}
         </button>
         <span className={`chip ${paused ? "stopped" : "ok"}`}>{paused ? "Paused" : "Active"}</span>
@@ -49,7 +51,7 @@ export function KillSwitch({paused}: {paused: boolean}) {
       {hash ? (
         <div style={{marginTop: 12, fontSize: 12.5}}>
           <a href={txUrl(hash)} target="_blank" rel="noreferrer" style={{color: "var(--muted)"}}>
-            View transaction on ArcScan ↗
+            View transaction on ArcScan <ExternalIcon size={11} />
           </a>
         </div>
       ) : null}

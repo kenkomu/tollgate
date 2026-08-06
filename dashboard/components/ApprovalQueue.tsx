@@ -5,6 +5,7 @@ import type {Address} from "viem";
 import type {ApprovalRequest} from "../lib/approvals.ts";
 import {approvePayee, declineRequest} from "../lib/owner.ts";
 import {shortAddress, txUrl} from "../lib/chain.ts";
+import {ExternalIcon, HandIcon} from "./Icon.tsx";
 
 /**
  * Payee approvals — the human in the loop.
@@ -44,7 +45,14 @@ export function ApprovalQueue({requests}: {requests: ApprovalRequest[]}) {
 
   return (
     <section className="card">
-      <h2 className="card-title">Approvals</h2>
+      <h2 className="card-title">
+        Approvals
+        {requests.length > 0 ? (
+          <span className="chip accent" style={{marginLeft: 10, verticalAlign: 3}}>
+            <HandIcon size={11} /> {requests.length} waiting
+          </span>
+        ) : null}
+      </h2>
       <p className="card-note">
         Payments the agent wants to make to someone you have not approved. It cannot proceed
         without you.
@@ -85,7 +93,7 @@ export function ApprovalQueue({requests}: {requests: ApprovalRequest[]}) {
       {hash ? (
         <div style={{marginTop: 12, fontSize: 12.5}}>
           <a href={txUrl(hash)} target="_blank" rel="noreferrer" style={{color: "var(--muted)"}}>
-            Payee added on chain ↗
+            Payee added on chain <ExternalIcon size={11} />
           </a>
         </div>
       ) : null}

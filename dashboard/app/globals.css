@@ -25,8 +25,9 @@
   --ok: #4fa985;
   --ok-soft: #12241d;
 
-  /* Reserved. Blocked and kill only. */
-  --stop: #ce5f57;
+  /* Reserved. Blocked and kill only. Lifted from #ce5f57, which measured 4.43:1 on the
+     card surface — under AA, on the one colour that must never be missed. */
+  --stop: #d66b62;
   --stop-soft: #2a1413;
 
   --radius: 3px;
@@ -37,6 +38,15 @@
   --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
 }
 
+/*
+ * Light mode.
+ *
+ * Every foreground here was re-measured against the surface it actually sits on, not
+ * against white in the abstract. The earlier values looked right and were not: muted read
+ * 4.40:1, the accent 4.22:1, and the accent on its own tinted panel just 3.31:1 — which is
+ * the approval card, the one place an owner is asked to authorise spending. All clear AA
+ * now, on both the card and the page ground.
+ */
 @media (prefers-color-scheme: light) {
   :root {
     --ground: #f1f3f3;
@@ -45,13 +55,13 @@
     --hair: #d2d9d9;
     --ink: #11181a;
     --ink-2: #3d4a4d;
-    --muted: #6c7b7f;
-    --accent: #a6702a;
-    --accent-soft: #f0e2cb;
-    --ok: #2f7d60;
-    --ok-soft: #ddede5;
-    --stop: #a83932;
-    --stop-soft: #f6dedb;
+    --muted: #5d6b6e;
+    --accent: #8f5f20;
+    --accent-soft: #f6ecd9;
+    --ok: #286b52;
+    --ok-soft: #e4f0ea;
+    --stop: #9c332c;
+    --stop-soft: #fbe6e3;
     --shadow: 0 1px 2px rgb(17 24 26 / 0.06), 0 8px 24px -12px rgb(17 24 26 / 0.18);
   }
 }
@@ -282,7 +292,9 @@ dl.facts > :nth-last-child(-n + 2) {
 /* ---------- chips ---------- */
 
 .chip {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.1em;
@@ -351,8 +363,23 @@ dl.facts > :nth-last-child(-n + 2) {
 }
 
 .feed-what {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-weight: 600;
   font-size: 14px;
+}
+
+.feed-row .feed-what svg {
+  color: var(--ok);
+}
+
+.feed-row.stopped .feed-what svg {
+  color: var(--stop);
+}
+
+.feed-row.neutral .feed-what svg {
+  color: var(--muted);
 }
 
 .feed-amount {
@@ -388,6 +415,9 @@ dl.facts > :nth-last-child(-n + 2) {
 /* ---------- buttons ---------- */
 
 button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.09em;
@@ -466,4 +496,268 @@ button.danger {
   color: var(--stop);
   font-size: 12.5px;
   margin-top: 10px;
+}
+
+/* ---------- verdict ribbon ---------- */
+
+/*
+ * The first thing read, and the only element allowed to be loud. It answers "is this
+ * thing on?" before the eye reaches a single number, because that is the claim the whole
+ * project rests on. Its left edge carries the state as a colour so the answer survives
+ * being seen from across a room, or in a compressed video frame.
+ */
+.verdict {
+  background: var(--surface);
+  border: 1px solid var(--hair);
+  border-left: 3px solid var(--ok);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px 24px;
+  margin-bottom: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px 40px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.verdict.stopped {
+  border-left-color: var(--stop);
+}
+
+.verdict-state {
+  min-width: 260px;
+  flex: 1 1 340px;
+}
+
+.verdict-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--ok);
+}
+
+.verdict.stopped .verdict-badge {
+  color: var(--stop);
+}
+
+.verdict-line {
+  margin: 7px 0 0;
+  font-size: 13.5px;
+  color: var(--ink-2);
+  max-width: 52ch;
+}
+
+.verdict-stats {
+  display: flex;
+  gap: 32px;
+  margin: 0;
+  flex-wrap: wrap;
+}
+
+.verdict-stats dt {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 3px;
+}
+
+.verdict-stats dd {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ---------- live indicator ---------- */
+
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: transparent;
+  border: 1px solid var(--hair);
+  color: var(--muted);
+  padding: 4px 9px;
+  margin-bottom: 6px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+
+.live:hover:not(:disabled) {
+  opacity: 1;
+  color: var(--ink-2);
+  border-color: var(--muted);
+}
+
+.live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--ok);
+  animation: breathe 2.4s ease-in-out infinite;
+}
+
+.live-dot.off {
+  background: var(--muted);
+  animation: none;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+/* ---------- loading placeholders ---------- */
+
+.shimmer {
+  display: block;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--hair) 50%, var(--surface-2) 75%);
+  background-size: 200% 100%;
+  animation: sweep 1.8s ease-in-out infinite;
+}
+
+@keyframes sweep {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* ---------- entrance ---------- */
+
+/*
+ * One short fade on first paint, and only on the streamed sections, so that content
+ * arriving late reads as *arriving* rather than as a flicker. Nothing loops, nothing
+ * moves on scroll. A page about money should sit still once it has landed.
+ */
+section.card,
+.verdict {
+  animation: rise 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* Icons sit on the text baseline rather than the line box, or they ride high next to caps. */
+a svg,
+.feed-sub svg {
+  vertical-align: -1px;
+}
+
+a:focus-visible,
+.live:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+/* ---------- small screens ---------- */
+
+@media (max-width: 620px) {
+  body {
+    font-size: 14.5px;
+  }
+
+  .wrap {
+    padding: 0 16px 64px;
+  }
+
+  .mast-inner {
+    padding: 22px 16px 18px;
+    align-items: flex-start;
+  }
+
+  .mast-meta {
+    text-align: left;
+  }
+
+  .wordmark {
+    font-size: 25px;
+  }
+
+  .verdict {
+    padding: 18px;
+    gap: 18px;
+  }
+
+  /* Two up rather than one long column — three money figures stacked reads as a form. */
+  .verdict-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px 20px;
+    width: 100%;
+  }
+
+  .verdict-stats dd {
+    font-size: 18px;
+  }
+
+  section.card {
+    padding: 18px 16px;
+  }
+
+  /* Labels above values: an address plus its label will not share 320px of width. */
+  dl.facts {
+    grid-template-columns: 1fr;
+  }
+
+  dl.facts dt {
+    padding: 10px 0 0;
+    border-bottom: 0;
+  }
+
+  dl.facts dd {
+    text-align: left;
+    padding: 2px 0 10px;
+  }
+
+  dl.facts > :nth-last-child(-n + 2) {
+    border-bottom: 0;
+  }
+
+  .feed {
+    max-height: none;
+  }
+
+  .actions button {
+    flex: 1 1 auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  section.card,
+  .verdict,
+  .live-dot,
+  .shimmer {
+    animation: none;
+  }
+
+  .shimmer {
+    background: var(--surface-2);
+  }
 }

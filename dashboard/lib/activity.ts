@@ -21,6 +21,25 @@ async function readWindow(from: bigint, to: bigint) {
   return parseEventLogs({abi, logs, strict: false});
 }
 
+type DecodedLogs = Awaited<ReturnType<typeof readWindow>>;
+
+/**
+ * Settled history, memoised.
+ *
+ * "Always read fresh" applies to the *policy* — a cached view of a spend limit is a wrong
+ * view of a spend limit. It does not apply to history. A block that is behind the tip by
+ * more than `CONFIRMATIONS` will never contain a different set of logs than it does now,
+ * so re-reading it on every page load buys nothing and costs seven round trips.
+ *
+ * Only the window containing the unstable tip is re-fetched. Losing this cache loses
+ * nothing: it repopulates from chain, which remains the only authority.
+ */
+const settledWindows = new Map<string, DecodedLogs>();
+const blockTimes = new Map<bigint, number>();
+
+/** How far behind the tip a block must be before we treat its logs as final. */
+const CONFIRMATIONS = 64n;
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Retries on Arc's `-32005 rate limit exceeded`, which a public endpoint will return. */
@@ -47,20 +66,34 @@ async function withBackoff<T>(work: () => Promise<T>, attempts = 4): Promise<T> 
 async function readAllLogs(head: bigint) {
   const deployed = BigInt(process.env.POLICY_ENGINE_DEPLOY_BLOCK ?? POLICY_ENGINE_DEPLOY_BLOCK);
   const earliest = head > MAX_HISTORY_BLOCKS ? head - MAX_HISTORY_BLOCKS : 0n;
-  const start = deployed > earliest ? deployed : earliest;
 
+  // Window boundaries are anchored to the deployment block, never to the moving head, so
+  // that a given window has the same bounds on every load and stays cacheable. Windows
+  // that fall entirely outside the history horizon are skipped rather than shifting the
+  // grid, which would invalidate every key each time a block is produced.
   const windows: Array<{from: bigint; to: bigint}> = [];
-  for (let from = start; from <= head; from += MAX_LOG_BLOCK_RANGE) {
+  for (let from = deployed; from <= head; from += MAX_LOG_BLOCK_RANGE) {
     const to = from + MAX_LOG_BLOCK_RANGE - 1n;
+    if (to < earliest) continue;
     windows.push({from, to: to > head ? head : to});
   }
 
   const CONCURRENCY = 3;
-  const out: Awaited<ReturnType<typeof readWindow>> = [];
+  const out: DecodedLogs = [];
   for (let i = 0; i < windows.length; i += CONCURRENCY) {
     const batch = windows.slice(i, i + CONCURRENCY);
     const results = await Promise.all(
-      batch.map((w) => withBackoff(() => readWindow(w.from, w.to))),
+      batch.map(async ({from, to}) => {
+        const settled = to + CONFIRMATIONS <= head;
+        const key = `${from}:${to}`;
+        if (settled) {
+          const hit = settledWindows.get(key);
+          if (hit) return hit;
+        }
+        const logs = await withBackoff(() => readWindow(from, to));
+        if (settled) settledWindows.set(key, logs);
+        return logs;
+      }),
     );
     for (const logs of results) out.push(...logs);
   }
@@ -180,22 +213,22 @@ export async function readAuditLog(owner: Address): Promise<AuditLog> {
   // Newest first. Ties broken by log index inside the key, which is already ordered.
   entries.sort((a, b) => (b.blockNumber === a.blockNumber ? b.key.localeCompare(a.key) : Number(b.blockNumber - a.blockNumber)));
 
-  // Timestamps for the visible window only — one RPC call per block is not free.
+  // Timestamps for the visible window only — one RPC call per block is not free. A block's
+  // timestamp never changes, so each one is fetched at most once per process lifetime.
   const visible = entries.slice(0, 40);
-  const blocks = [...new Set(visible.map((e) => e.blockNumber))];
-  const times = new Map<bigint, number>();
+  const missing = [...new Set(visible.map((e) => e.blockNumber))].filter((n) => !blockTimes.has(n));
   await Promise.all(
-    blocks.map(async (n) => {
+    missing.map(async (n) => {
       try {
         const block = await publicClient.getBlock({blockNumber: n});
-        times.set(n, Number(block.timestamp));
+        blockTimes.set(n, Number(block.timestamp));
       } catch {
         // A missing timestamp degrades the display, never the record.
       }
     }),
   );
   for (const entry of entries) {
-    entry.timestamp = times.get(entry.blockNumber) ?? 0;
+    entry.timestamp = blockTimes.get(entry.blockNumber) ?? 0;
   }
 
   return {

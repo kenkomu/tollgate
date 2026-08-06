@@ -1,6 +1,14 @@
 import {formatUsdc} from "@tollgate/shared";
 import {describe, type Activity} from "../lib/activity.ts";
 import {shortAddress, txUrl} from "../lib/chain.ts";
+import {CheckIcon, ExternalIcon, SlidersIcon, StopIcon} from "./Icon.tsx";
+
+/** Colour already carries the row's meaning; the glyph repeats it for anyone who can't see it. */
+function KindIcon({kind}: {kind: Activity["kind"]}) {
+  if (kind === "paid") return <CheckIcon size={13} />;
+  if (kind === "paused" || kind === "payee-removed") return <StopIcon size={13} />;
+  return <SlidersIcon size={13} />;
+}
 
 function when(timestamp: number): string {
   if (!timestamp) return "";
@@ -50,7 +58,10 @@ export function Feed({entries}: {entries: Activity[]}) {
               <div className="feed-stripe" />
               <div className="feed-body">
                 <div className="feed-top">
-                  <span className="feed-what">{describe(entry)}</span>
+                  <span className="feed-what">
+                    <KindIcon kind={entry.kind} />
+                    {describe(entry)}
+                  </span>
                   {entry.amount !== undefined ? (
                     <span className="feed-amount">{formatUsdc(entry.amount)}</span>
                   ) : null}
@@ -64,7 +75,7 @@ export function Feed({entries}: {entries: Activity[]}) {
                   ) : null}
                   {entry.timestamp ? <span>{when(entry.timestamp)}</span> : null}
                   <a href={txUrl(entry.txHash)} target="_blank" rel="noreferrer">
-                    proof ↗
+                    proof <ExternalIcon size={11} />
                   </a>
                 </div>
               </div>
