@@ -1,9 +1,8 @@
 import {
+  arcFees,
   arcTestnet,
-  MIN_GAS_PRICE_WEI,
   policyEngineAbi,
   Reason,
-  SUGGESTED_PRIORITY_FEE_WEI,
   explainToAgent,
   isRetryable,
   reasonName,
@@ -136,31 +135,6 @@ export class TollgateClient {
   }
 
   /**
-   * Fees that clear Arc's floor.
-   *
-   * Arc enforces a minimum base fee of 20 Gwei, and the documentation is explicit that a
-   * transaction submitted under it "may remain pending indefinitely or fail outright".
-   * That is the single most likely cause of a stuck payment here, so the floor is applied
-   * rather than trusted to the estimator: whatever the node suggests, we never bid below
-   * it. The doubling is headroom for a base-fee rise between estimating and inclusion.
-   */
-  async #fees(): Promise<{maxFeePerGas: bigint; maxPriorityFeePerGas: bigint}> {
-    const [block, suggested] = await Promise.all([
-      this.#publicClient.getBlock({blockTag: "latest"}),
-      this.#publicClient
-        .estimateMaxPriorityFeePerGas()
-        .catch(() => SUGGESTED_PRIORITY_FEE_WEI),
-    ]);
-
-    const base = block.baseFeePerGas ?? MIN_GAS_PRICE_WEI;
-    const floored = base > MIN_GAS_PRICE_WEI ? base : MIN_GAS_PRICE_WEI;
-    const priority =
-      suggested > SUGGESTED_PRIORITY_FEE_WEI ? suggested : SUGGESTED_PRIORITY_FEE_WEI;
-
-    return {maxFeePerGas: floored * 2n + priority, maxPriorityFeePerGas: priority};
-  }
-
-  /**
    * Attempt the payment.
    *
    * Three failure shapes, deliberately distinct, because the correct response differs:
@@ -176,7 +150,7 @@ export class TollgateClient {
   async spend(payee: Address, amount: bigint, timeoutMs = 90_000): Promise<SpendResult> {
     // Fees are settled before simulating so the simulated transaction and the submitted
     // one are the same shape, rather than the second being the first plus an override.
-    const fees = await this.#fees();
+    const fees = await arcFees(this.#publicClient);
 
     const {request, result} = await this.#publicClient.simulateContract({
       address: this.engine,

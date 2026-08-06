@@ -135,6 +135,35 @@ export const MAX_HISTORY_BLOCKS = 400_000n;
  */
 export const POLICY_ENGINE_DEPLOY_BLOCK = 55_440_673n;
 
+/**
+ * Fees that clear Arc's floor.
+ *
+ * Arc enforces a 20 Gwei minimum base fee, and the documentation is explicit that a
+ * transaction submitted below it "may remain pending indefinitely or fail outright" —
+ * which is the single most likely cause of a stuck payment on this chain. So the floor is
+ * applied rather than trusted to the estimator: whatever the node suggests, never bid
+ * under it. The doubling is headroom for a base-fee rise between estimating and inclusion.
+ *
+ * Lives here rather than in either caller because both the agent's `spend` and the
+ * dashboard's owner actions need it, and the kill switch is the last write in this system
+ * that should ever sit unmined.
+ */
+export async function arcFees(client: {
+  getBlock: (args: {blockTag: "latest"}) => Promise<{baseFeePerGas?: bigint | null}>;
+  estimateMaxPriorityFeePerGas: () => Promise<bigint>;
+}): Promise<{maxFeePerGas: bigint; maxPriorityFeePerGas: bigint}> {
+  const [block, suggested] = await Promise.all([
+    client.getBlock({blockTag: "latest"}),
+    client.estimateMaxPriorityFeePerGas().catch(() => SUGGESTED_PRIORITY_FEE_WEI),
+  ]);
+
+  const base = block.baseFeePerGas ?? MIN_GAS_PRICE_WEI;
+  const floored = base > MIN_GAS_PRICE_WEI ? base : MIN_GAS_PRICE_WEI;
+  const priority = suggested > SUGGESTED_PRIORITY_FEE_WEI ? suggested : SUGGESTED_PRIORITY_FEE_WEI;
+
+  return {maxFeePerGas: floored * 2n + priority, maxPriorityFeePerGas: priority};
+}
+
 export const FAUCET_URL = "https://faucet.circle.com";
 
 export function explorerTx(hash: string): string {

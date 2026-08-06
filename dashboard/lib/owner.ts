@@ -1,6 +1,6 @@
 "use server";
 
-import {arcTestnet} from "@tollgate/shared";
+import {arcFees, arcTestnet} from "@tollgate/shared";
 import {revalidatePath} from "next/cache";
 import {createWalletClient, http, type Address, type Hex} from "viem";
 import {privateKeyToAccount} from "viem/accounts";
@@ -18,7 +18,7 @@ import {removeRequest} from "./approvals.ts";
  * The intended replacement is a Circle Modular Wallet: the owner authenticates with a
  * passkey, the key never leaves their device, and these become client-side transactions.
  * `PolicyEngine` does not care which it is — the owner is just an address that granted an
- * allowance — so this is a swap, not a rewrite. See docs/BACKLOG.md.
+ * allowance — so this is a swap, not a rewrite. See BACKLOG.md at the repo root.
  */
 
 function ownerWallet() {
@@ -33,15 +33,25 @@ function ownerWallet() {
 
 async function send(functionName: "setPaused" | "setPayee", args: readonly unknown[]): Promise<string> {
   const wallet = ownerWallet();
+
+  // Floored to Arc's 20 Gwei minimum. An owner action left underpriced sits in the mempool
+  // indefinitely, and the most important of these is the kill switch — the one write in
+  // this system that must never be the thing that failed to mine.
+  const fees = await arcFees(publicClient);
+
   const {request} = await publicClient.simulateContract({
     address: ENGINE,
     abi,
     functionName,
     args: args as never,
     account: wallet.account,
+    ...fees,
   });
   const hash = await wallet.writeContract(request);
-  await publicClient.waitForTransactionReceipt({hash});
+
+  // Bounded. Without a timeout this server action hangs for viem's 180s default, and the
+  // owner is left staring at "Signing…" with no idea whether the agent is stopped.
+  await publicClient.waitForTransactionReceipt({hash, timeout: 60_000});
   return hash;
 }
 
