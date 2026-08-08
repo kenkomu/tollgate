@@ -60,7 +60,8 @@ Every directory answers two questions: what is this, and what must never break h
 | `dashboard/` | Next.js — the owner's control plane on the web. Policy setup, live spend feed, kill switch. |
 | `agent/` | The demo agent (Claude Agent SDK). The thing being leashed. |
 | `docs/` | Architecture, threat model, and the decision record behind every choice above. |
-| `mobile/`, `service/` | **Empty.** Reserved for the phone control plane and the indexer. Neither is built — see `ROADMAP.md`. |
+
+The phone control plane and the indexer are real planned surfaces and neither exists yet. There are no empty directories standing in for them — see `ROADMAP.md` for what they are, ADR 0006 for why the backend is deferred, and ADR 0007 for how mobile will be built.
 
 Start in `enforcement/` and `docs/decisions/`. Everything else is convenience and can be rebuilt from chain state.
 

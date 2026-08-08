@@ -81,6 +81,24 @@ Adopt Postgres when **any** of these becomes true:
 The first of these we will hit is **refusal visibility**, and it is worth being clear that
 a database is genuinely the right answer there rather than a concession.
 
+### Amendment, 2026-08-08: the first trigger fired, and the answer was not a database
+
+Refusal visibility arrived, and the fix was to make refusals *exist on chain* rather than to
+build a mirror that captures reverts. `trySpend` returns a reason code and emits `Refused`
+instead of reverting, so a blocked attempt is now a successful transaction carrying a
+permanent record. The dashboard reads it in the same log walk as everything else.
+
+This is worth stating plainly because it inverts the prediction above. The trigger was real;
+the inference from it was wrong. Reaching for storage would have produced an
+operator-controlled record of refusals — precisely the thing this ADR argues against — when
+the honest fix was to put the evidence somewhere nobody has to trust us about. The cost is
+about $0.0007 of gas per refusal, paid by the agent, and it is not the agent's call to opt
+out of being watched.
+
+The remaining triggers stand unchanged. **Notifications are the next one**, and that one has
+no on-chain answer: a durable cursor of what has already been sent is genuinely state, and
+the mobile app in ADR 0007 needs it on day one.
+
 ## The shape it takes when it arrives
 
 A **cache in front of the chain, never an authority over it.** The rules that keep this

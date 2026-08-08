@@ -45,10 +45,11 @@ remaining surface.
 | `shared/` | Chain config, reason codes, amounts, ABI. Every TS package imports it | 0 |
 | `agent/` | 7 tools, 5 failure classes, nonce queue, velocity back-off, unstick, gas health | 0 unit; `selftest.ts` is live-chain only |
 | `dashboard/` | 4 pages, all 8 owner writes wired, refusals visible, no database | 0 |
-| `service/` | **Empty.** One empty `src/` directory | — |
-| `mobile/` | **Empty.** Zero files | — |
+| `service/`, `mobile/` | **Do not exist.** Empty scaffolds removed rather than left as decoration | — |
 
 Nothing is deployed anywhere but a local machine and Arc testnet.
+
+Totals: **47 Solidity tests, 97 TypeScript tests**, all gated by CI.
 
 ---
 
@@ -93,16 +94,14 @@ Nothing is deployed anywhere but a local machine and Arc testnet.
 - [x] 30% gas buffer around Arc's estimator, with the measurement that justifies it
 
 ### Left in Phase 0
-- [ ] **CI.** No GitHub Actions. `forge test` + `pnpm typecheck` should gate every push
-- [ ] **Unit tests for `shared/` and `agent/`** — the pure logic is testable without a chain
-- [ ] `docs/architecture.md`
+- [x] **CI.** GitHub Actions gates contracts, typecheck, lint, tests and a production build
+- [x] **97 TypeScript tests** across `shared/`, `agent/` and `dashboard/`
+- [x] `docs/architecture.md`
+- [x] Removed the empty `service/` and `mobile/` scaffolds and their dead root scripts
+- [x] `README.md` counts corrected
 - [ ] `docs/demo-script.md` — the runbook the video is shot from
 - [ ] 3-minute video
 - [ ] Submission deck
-- [ ] Delete or fill the empty `service/` and `mobile/` scaffolds, and remove their dead
-      root `package.json` scripts — `pnpm service` and `pnpm mobile` both fail today
-- [ ] Fix stale counts in `README.md` — it says 40 tests (now 47) and describes `mobile/`
-      and `service/` as if they contain code
 
 ---
 
@@ -227,12 +226,11 @@ both things an owner needs when they are away from a desk. A dashboard you have 
 your laptop to use is not a kill switch.
 
 ### Decide first
-- [ ] **Expo/React Native vs native Kotlin.** RN shares `shared/` and the reason codes
-      directly, which is most of the value; native gives better Credential Manager and
-      biometric integration. This is a real decision with real consequences — write it as
-      an ADR rather than defaulting
-- [ ] Android first, or Android and iOS together
-- [ ] Whether mobile is read-and-approve only, or full policy editing
+- [x] **Expo/React Native vs native Kotlin** — ADR 0007: React Native via Expo, Android
+      first, so reason codes and token-bucket maths come from `shared/` rather than being
+      reimplemented in Kotlin where nothing guards the drift
+- [!] **Scaffold the app** — blocked on sign-off before any install or scaffold is run
+- [ ] Whether mobile is approve-and-kill only, or full policy editing (open in ADR 0007)
 
 ### Core screens (§5.1)
 - [ ] Passkey onboarding — no seed phrase, ever
@@ -287,17 +285,20 @@ all three of which the mobile app needs on day one.
 
 ## Testing
 
-- [ ] **Unit tests for `shared/`** — token-bucket maths, `secondsUntilAvailable`, the
-      formatters, reason classification. Pure functions, no chain, no excuse
-- [ ] **Unit tests for the agent** — the error taxonomy, the serialisation queue, the
-      back-off decision. `selftest.ts` covers the live paths but spends real money
-- [ ] **Dashboard tests** — none exist. Log decoding and the activity projection first
+- [x] **Unit tests for `shared/`** — 54, including a check that reads the Solidity enum and
+      fails if the TypeScript reason table drifts from it
+- [x] **Unit tests for the agent** — 23, driven against a stub node through an injectable
+      transport, covering the paths a live chain will not produce on demand
+- [x] **Dashboard tests** — 20, over the log-window planner and the audit projection
+- [x] **Differential test against an independent token-bucket implementation** — 20,000
+      pseudo-random states, fixed seed
 - [ ] End-to-end test of the agent loop against a local fork
 - [ ] Fork tests against real Arc state rather than a local EVM
-- [ ] Differential test against an independent token-bucket implementation
 - [ ] Chaos drills: kill the indexer, drop the backend, replay a reorg (§4)
 - [ ] Load-test the RPC assumptions — the 20,000-block `eth_getLogs` limit was found by
       probing, is undocumented, and could change under us
+- [ ] Component tests for the dashboard's React tree — the projection is covered, the
+      rendering is not
 
 ---
 

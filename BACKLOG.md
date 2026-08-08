@@ -148,15 +148,16 @@ you must be at your laptop to reach is not a kill switch.
 
 ## Infrastructure
 
-- [ ] **CI.** No GitHub Actions. `forge test` and `pnpm typecheck` should gate every push.
+- [x] **CI.** GitHub Actions gates contracts (fmt, build, `ci` fuzz profile), typecheck,
+      lint, unit tests and a production dashboard build on every push.
 - [ ] **Deployment.** The dashboard runs on localhost only. Nothing is hosted.
 - [ ] **The indexer + Postgres**, under the constraints in ADR 0006: a cache in front of
       the chain, never an authority over it.
 - [ ] **Monitoring and alerting** on the contract — a spend spike, a pause, an approaching
       budget ceiling.
-- [ ] **`service/` package.** Scaffolded, empty, and currently unjustified. Delete it or
-      fill it. Either way, remove the dead `pnpm service` and `pnpm mobile` root scripts,
-      which both fail today.
+- [x] **`service/` and `mobile/` scaffolds removed**, along with the dead `pnpm service`
+      and `pnpm mobile` root scripts. Both are real planned surfaces; an empty directory
+      with a failing script was not a placeholder for one.
 - [ ] **Mainnet.** Arc mainnet is not live.
 - [x] **Fix the duplicated `POLICY_ENGINE_ADDRESS` in `.env`.**
 
@@ -164,14 +165,17 @@ you must be at your laptop to reach is not a kill switch.
 
 ## Testing
 
-47 Solidity tests. Zero TypeScript tests, across three packages that move money.
+47 Solidity tests and 97 TypeScript tests.
 
-- [ ] **Unit tests for `shared/`.** Token-bucket maths, `secondsUntilAvailable`, the
-      formatters, reason classification. Pure functions with no chain dependency.
-- [ ] **Unit tests for the agent.** The error taxonomy, the serialisation queue, the
-      back-off decision. `selftest.ts` covers the live paths but spends real money, so it
-      cannot run in CI.
-- [ ] **Dashboard tests.** None exist. Log decoding and the activity projection first.
+- [x] **Unit tests for `shared/`** — 54. Includes a check that reads the Solidity `Reason`
+      enum and fails if the TypeScript table drifts from it, and a 20,000-case differential
+      of the token bucket against an independently written reference.
+- [x] **Unit tests for the agent** — 23, against a stub node reached through an injectable
+      transport. `selftest.ts` still covers the live paths and still spends real money, so
+      it stays out of CI.
+- [x] **Dashboard tests** — 20, over the log-window planner and the audit projection.
+- [ ] **Component tests for the dashboard's React tree.** The projection is covered; the
+      rendering is not.
 - [ ] **End-to-end test of the agent loop** against a local fork.
 - [ ] **Load-test the RPC assumptions.** The 20,000-block `eth_getLogs` limit was found by
       probing; it is not documented and could change.
@@ -186,7 +190,8 @@ you must be at your laptop to reach is not a kill switch.
 - [x] `docs/tech-stack.md`
 - [x] `docs/decisions/0001`–`0006`
 - [x] `ROADMAP.md`
-- [ ] `docs/architecture.md`
+- [x] `docs/architecture.md`
+- [x] `docs/decisions/0007` — the mobile stack decision
 - [ ] `docs/demo-script.md`
 - [ ] A written redeploy-and-migrate story. We have now redeployed once and still have no
       migration path on paper.
