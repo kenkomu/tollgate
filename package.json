@@ -4,7 +4,7 @@
   "private": true,
   "description": "An enforcement layer for autonomous agent spending, on Arc.",
   "engines": {
-    "node": ">=22.11.0"
+    "node": ">=22.18.0"
   },
   "packageManager": "pnpm@11.20.0",
   "scripts": {
@@ -18,7 +18,9 @@
     "agent:compromised": "pnpm --filter @tollgate/agent compromised",
     "mobile": "pnpm --filter @tollgate/mobile start",
     "build": "pnpm -r build",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "test:all": "pnpm contracts:test && pnpm typecheck && pnpm test"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

@@ -3,16 +3,20 @@
 Every task the project needs, cross-referenced against
 `tollgate-implementation-plan-v2.md`. Section numbers in parentheses point back to it.
 
-This is the complete scope, not the hackathon scope. Hackathon-only items are in the
-submission checklist at the bottom.
+This is the complete scope, not the hackathon scope — every surface the product needs to
+exist as a business: contract, agent, SDK, web, Android, backend, infrastructure.
+Hackathon-only items are in the submission checklist at the bottom.
 
 **Status:** `[x]` done · `[~]` partial · `[ ]` not started · `[!]` blocked on someone else
+
+Last reconciled against the source tree at commit `ee53870`. Where this file and the code
+disagree, the code is right — say so and fix this file.
 
 ---
 
 ## Where the plan was wrong, and where we beat it
 
-Two corrections worth recording before the list, because both change what follows.
+Three corrections worth recording before the list, because all three change what follows.
 
 **The plan says pin `evmVersion: "paris"` (§3.2). That is wrong.** We verified empirically
 by disassembling Circle's live ERC-8183 proxy on Arc and finding ten `PUSH0` opcodes in
@@ -24,6 +28,27 @@ We skipped the vault entirely and shipped the allowance model in Phase 0. The si
 biggest architectural risk in the plan — "a contract bug drains user funds" (§11) — was
 designed out at the start rather than refactored away later. Phase 2's "replace the custody
 vault" line item does not exist for us.
+
+**The plan schedules the Phase 2 correctness work months out.** Four of those items shipped
+in Phase 0 instead: refusal visibility, the `setPayee(address(this))` fix, policy editing,
+and agent-loop hardening. They are marked done below rather than deferred, because a
+roadmap that claims credit for finished work is worth less than one that shows the real
+remaining surface.
+
+---
+
+## Where the code actually stands
+
+| Package | State | Tests |
+|---|---|---|
+| `enforcement/` | Deployed + verified at `0x8168eb562496A966f339a4bD165B924EeDce9873` (block 55,621,174) | 47 — 37 unit, 7 invariant, 3 coverage |
+| `shared/` | Chain config, reason codes, amounts, ABI. Every TS package imports it | 0 |
+| `agent/` | 7 tools, 5 failure classes, nonce queue, velocity back-off, unstick, gas health | 0 unit; `selftest.ts` is live-chain only |
+| `dashboard/` | 4 pages, all 8 owner writes wired, refusals visible, no database | 0 |
+| `service/` | **Empty.** One empty `src/` directory | — |
+| `mobile/` | **Empty.** Zero files | — |
+
+Nothing is deployed anywhere but a local machine and Arc testnet.
 
 ---
 
@@ -43,6 +68,8 @@ vault" line item does not exist for us.
 - [x] Fuzzing (§3.2)
 - [x] Idempotency by `tx_hash + log_index` (§3.5)
 - [x] Reproducible builds, verified source on ArcScan (§3.2)
+- [x] `trySpend` + `Refused` — refusals exist on chain, not just in a revert string
+- [x] `setPayee` rejects `address(this)` — the unrecoverable-funds footgun
 
 ### Surfaces
 - [x] Agent on the Claude Agent SDK, deliberately unrestricted tools (§2.3)
@@ -51,22 +78,31 @@ vault" line item does not exist for us.
 - [x] Design system — charcoal, one accent, red reserved for blocked/kill (§5.4)
 - [x] Plain-English audit log rebuilt from chain, no database (§2.4, ADR 0006)
 - [x] Calibrated-trust approval queue (§5.1)
+- [x] Refusals rendered with reason text and a proof link
+- [x] Policy creation and editing from the UI — no Foundry script required
+- [x] Empty and error states for an unconfigured deployment
+- [x] Agent loop hardened: velocity back-off, stuck recovery, nonce serialisation, gas monitoring
 
 ### Discipline
 - [x] Threat model written (§3.1)
 - [x] ADRs 0001–0006
 - [x] `docs/outcomes.md`, `docs/tech-stack.md`, `BACKLOG.md`
-- [x] `docs/circle-feedback.md` — four findings on Circle's stack
+- [x] `docs/circle-feedback.md` — six findings on Circle's stack
 - [x] Public repository
-- [x] Gas floor applied; in-flight vs reverted payments distinguished
+- [x] Gas floor applied to agent *and* owner writes; in-flight vs reverted distinguished
+- [x] 30% gas buffer around Arc's estimator, with the measurement that justifies it
 
 ### Left in Phase 0
-- [ ] `docs/demo-script.md` — the runbook the video is shot from
+- [ ] **CI.** No GitHub Actions. `forge test` + `pnpm typecheck` should gate every push
+- [ ] **Unit tests for `shared/` and `agent/`** — the pure logic is testable without a chain
 - [ ] `docs/architecture.md`
+- [ ] `docs/demo-script.md` — the runbook the video is shot from
 - [ ] 3-minute video
 - [ ] Submission deck
-- [ ] Delete or fill the empty `service/` and `mobile/` scaffolds — 0 source files each
-- [ ] Fix duplicated `POLICY_ENGINE_ADDRESS` in `.env`
+- [ ] Delete or fill the empty `service/` and `mobile/` scaffolds, and remove their dead
+      root `package.json` scripts — `pnpm service` and `pnpm mobile` both fail today
+- [ ] Fix stale counts in `README.md` — it says 40 tests (now 47) and describes `mobile/`
+      and `service/` as if they contain code
 
 ---
 
@@ -98,19 +134,17 @@ downstream (§1.3, §1.4, §10).
 
 These come first. They are what a serious reviewer attacks.
 
-- [ ] **Refusal visibility.** A reverted spend emits no event, so the dashboard can prove
-      what was allowed and cannot show what was stopped — the product's central claim.
-      Needs a non-reverting `trySpend` returning a reason code and emitting `Refused`.
-      Contract change, plus a migration path (ADR 0006, BACKLOG honesty gaps)
+- [x] **Refusal visibility.** `trySpend` returns a reason and emits `Refused`; the dashboard
+      shows what was stopped, with a transaction link for each
+- [x] `setPayee` rejects `address(this)`
 - [ ] **Owner key out of `.env`.** Passkey/WebAuthn signing in the browser. Non-custodial
       in the contract, custodial in the app, is a contradiction that sinks a security
-      pitch (§3.3)
-- [ ] **Deterministic attacker script.** The compromised demo currently depends on a model
-      *choosing* to attack; the evidence is the two contract refusals, not its commentary
-- [ ] `setPayee` must reject `address(this)` — funds sent to the engine are unrecoverable
-      (`docs/outcomes.md` §5.3)
-- [ ] Write the redeploy-and-migrate story. The contract is immutable and there is no
-      migration path (§3.2 upgrade safety)
+      pitch (§3.3). **The largest remaining honesty gap**
+- [ ] **Deterministic attacker script.** The compromised demo depends on a model *choosing*
+      to attack; the evidence is the contract refusals, not its commentary. A scripted
+      adversary trying every evasion in a fixed order makes the guarantee reproducible
+- [ ] Write the redeploy-and-migrate story. The contract is immutable, we have now
+      redeployed once, and there is still no written migration path (§3.2 upgrade safety)
 
 ### The ERC-4337 / 6900 question
 - [!] **Policy module on a modular smart account** (§2.2) — blocked: Circle Modular Wallets
@@ -122,50 +156,148 @@ These come first. They are what a serious reviewer attacks.
 - [ ] Scoped session keys with expiry and rotation (§3.3)
 - [ ] Guardian / social recovery (§3.3)
 
-### Capability
+### Contract capability
 - [ ] Multiple agents per owner — one policy per owner today, and a real operator runs a
       fleet (ADR 0004)
 - [ ] Per-payee sub-budgets; the allowlist is binary
 - [ ] Category limits and time windows
-- [ ] Batch spend / multicall — the fix for flat $0.002 gas making sub-$0.05 payments
-      uneconomic (`docs/outcomes.md` §7)
+- [ ] Batch spend / multicall — the fix for flat gas making sub-$0.05 payments uneconomic
+      (`docs/outcomes.md` §7)
 - [ ] On-chain payment references via Arc's memo contract, for reconciliation
 - [ ] Guardian role: a second party who can pause but not spend
-- [ ] Policy templates
-- [ ] Create and edit policies from the UI — onboarding is currently "run a forge script",
-      and only pause and payee approval are writable
+- [ ] Policy templates — "research agent", "procurement agent" as named presets
 
 ### The SDK is the real product (§5.3)
-- [ ] Extract `TollgateClient` from the demo app and publish `@tollgate/sdk`
+- [ ] Extract `TollgateClient` from `agent/` and publish `@tollgate/sdk`
 - [ ] `checkTransfer`, policy management, event subscription as the public surface
 - [ ] **MCP server** — highest-leverage adapter; makes Tollgate available to any
       MCP-speaking agent with no integration work
 - [ ] LangChain and Vercel AI SDK adapters (§2.3)
 - [ ] Documentation, examples, quickstart. The plan calls DX a core competency (§5.3)
+- [ ] Versioned ABI package so integrators are not pinned to our repo layout
 
-### Backend, when it is actually needed
-- [ ] Event-driven orchestrator and indexer (§2.3) — as a cache in front of the chain,
-      never an authority over it (ADR 0006)
+### Agent robustness
+- [x] Automatic back-off and retry on `EXCEEDS_VELOCITY`, the only retryable reason
+- [x] Stuck-transaction recovery: replace-by-fee at the same nonce
+- [x] Nonce management for concurrent payments
+- [x] Gas-balance monitoring, reported separately from the owner's budget
+- [ ] Real marketplace integration instead of the local catalogue
+- [ ] Persistent state across restarts — an agent restarted mid-payment currently forgets
+      the in-flight hash it was told not to retry
+- [ ] Structured spend logs the owner can diff against chain
+
+---
+
+## The web surface
+
+Today this means one Next.js app on `localhost:3000`. A product needs more than that.
+
+### Dashboard — hardening what exists
+- [ ] **Deploy it.** Nothing is hosted. Vercel or equivalent, with the RPC and contract
+      address as environment config, not `.env` on a laptop
+- [ ] **Authentication.** There is none. The dashboard trusts whoever opens the port
+- [ ] **Multi-owner / team accounts** with roles and multi-party approval (§5.2)
+- [ ] **Notifications** — email or push when the agent escalates or is refused. Requires a
+      durable cursor, which requires the database (ADR 0006)
+- [ ] **CSV export and accounting integration** (§5.2)
+- [ ] **History beyond the 400k-block horizon.** Needs the indexer
+- [ ] Manage many agents from one view, once the contract supports more than one
+- [ ] Per-agent cost attribution and exportable compliance reports (§2.3, §5.2)
+- [ ] Accessibility audit beyond the contrast pass — keyboard traversal, screen reader,
+      focus order on the editors
+- [ ] Real-time updates over WebSocket instead of the current interval refresh
+
+### Marketing and documentation web — does not exist at all
+- [ ] **Landing site.** There is no public page explaining what this is to a non-reader of
+      the repo
+- [ ] **Documentation site** for the SDK — quickstart, API reference, examples (§5.3)
+- [ ] **Public security page** and incident-response process (§7) — a trust signal, and the
+      plan classes it as a product feature, not a chore
+- [ ] Status page once anything is hosted
+- [ ] The design system formalised and shared across app, dashboard and marketing (§5.4) —
+      it currently lives as CSS custom properties in one `globals.css`
+
+---
+
+## The mobile surface — Android and iOS
+
+`mobile/` is an empty directory. **Nothing exists.** Plan §5.1 makes this the *consumer*
+control plane, and the case for it is specific: the kill switch and the approval queue are
+both things an owner needs when they are away from a desk. A dashboard you have to be at
+your laptop to use is not a kill switch.
+
+### Decide first
+- [ ] **Expo/React Native vs native Kotlin.** RN shares `shared/` and the reason codes
+      directly, which is most of the value; native gives better Credential Manager and
+      biometric integration. This is a real decision with real consequences — write it as
+      an ADR rather than defaulting
+- [ ] Android first, or Android and iOS together
+- [ ] Whether mobile is read-and-approve only, or full policy editing
+
+### Core screens (§5.1)
+- [ ] Passkey onboarding — no seed phrase, ever
+- [ ] Live spend feed, plain English, same `explainToOwner` strings as the web
+- [ ] Budget and policy setup
+- [ ] Calibrated-trust approvals — approve a payee from a push notification
+- [ ] Progressive autonomy — widen the leash as the agent earns it
+- [ ] **Prominent kill switch**, reachable in one tap from a cold start
+- [ ] Multi-agent views, once the contract supports a fleet
+
+### Android specifics that are their own work
+- [ ] **Passkey signing via Credential Manager API.** Circle's
+      `@circle-fin/modular-wallets-core` is web-first; Android needs either a WebAuthn
+      bridge or a native path, and this is the same blocked dependency as the web passkey
+      work (ADR 0001)
+- [ ] **Key storage in Android Keystore** — hardware-backed, never in shared preferences
+- [ ] **Biometric gate** on the kill switch and every policy write
+- [ ] **FCM push notifications** for escalations and refusals — which requires the backend,
+      device-token storage, and therefore the database
+- [ ] **Deep links** from a notification straight to the approval it refers to
+- [ ] **Offline and stale-data handling.** A phone that cannot reach the RPC must say so
+      loudly. Showing a cached "all clear" when the chain is unreachable is the worst
+      failure this app can have
+- [ ] Background sync and a home-screen widget showing remaining budget
+- [ ] Play Store release: signing keys, privacy policy, data-safety declaration, and the
+      extra review that financial apps attract
+- [ ] Low-end device and slow-network testing — the ICP is not all on flagship hardware
+- [ ] iOS parity: Secure Enclave, APNs, App Store review
+
+---
+
+## Backend — `service/`, when it is actually needed
+
+Empty today, and ADR 0006 argues that is correct for now. It stops being correct the moment
+notifications, history beyond 400k blocks, or multi-tenant accounts are real requirements —
+all three of which the mobile app needs on day one.
+
+- [ ] Event-driven orchestrator and indexer (§2.3) — a cache in front of the chain, never
+      an authority over it (ADR 0006)
 - [ ] Postgres projections + Redis (§2.3)
 - [ ] Reconciler that heals mirror-vs-chain drift (§3.5)
 - [ ] Webhook ingestion, idempotent by notification id (§3.5)
-- [ ] Realtime fan-out
+- [ ] Realtime fan-out so any node serves any client (§4)
 - [ ] Policy simulator — a fast off-chain mirror of `_evaluate` (§2.3)
+- [ ] Queue-backed ingestion to absorb agent-swarm bursts (§4)
+- [ ] Per-tenant partitioning (§4)
+- [ ] Device-token registry and notification dispatch for mobile
+- [ ] **Prove the rebuild claim.** The whole design rests on "the off-chain layer can be
+      rebuilt from chain if lost." That must be a tested drill, not an assertion (§4)
 
-### Agent robustness
-- [ ] Automatic back-off and retry on `EXCEEDS_VELOCITY`, the only retryable reason
-- [ ] Stuck-transaction recovery: replace-by-fee at the same nonce (`docs/outcomes.md` §2.4)
-- [ ] Nonce management for concurrent payments
-- [ ] Gas-balance monitoring — the agent pays its own gas from a second pot the dashboard
-      does not show
-- [ ] Real marketplace integration instead of the local catalogue
+---
 
-### Testing
-- [ ] End-to-end test of the agent loop — 40 contract tests, zero agent tests
-- [ ] Dashboard tests — none exist
-- [ ] Fork tests against real Arc state
+## Testing
+
+- [ ] **Unit tests for `shared/`** — token-bucket maths, `secondsUntilAvailable`, the
+      formatters, reason classification. Pure functions, no chain, no excuse
+- [ ] **Unit tests for the agent** — the error taxonomy, the serialisation queue, the
+      back-off decision. `selftest.ts` covers the live paths but spends real money
+- [ ] **Dashboard tests** — none exist. Log decoding and the activity projection first
+- [ ] End-to-end test of the agent loop against a local fork
+- [ ] Fork tests against real Arc state rather than a local EVM
 - [ ] Differential test against an independent token-bucket implementation
 - [ ] Chaos drills: kill the indexer, drop the backend, replay a reorg (§4)
+- [ ] Load-test the RPC assumptions — the 20,000-block `eth_getLogs` limit was found by
+      probing, is undocumented, and could change under us
 
 ---
 
@@ -175,7 +307,7 @@ These come first. They are what a serious reviewer attacks.
 
 - [ ] **External audit** (§3.2) — hard gate before mainnet
 - [ ] Bug bounty, Immunefi-style (§3.2)
-- [ ] Formal specs for the critical invariants (§3.2)
+- [ ] Formal specs for the critical invariants — Certora or Halmos on `spent ≤ budgetCap` (§3.2)
 - [ ] MPC/HSM for any operator-held keys, least privilege, rotation (§3.3)
 - [ ] **Solve the x402 atomicity gap** (§3.4) — payment can settle without service
       delivery, which is unacceptable for a trust product. In priority order:
@@ -184,14 +316,12 @@ These come first. They are what a serious reviewer attacks.
   - [ ] Bound exposure with per-call caps and payee reputation
   - [ ] Contribute upstream toward atomicity in the x402/MPP spec
 - [ ] Horizontal stateless services behind a load balancer (§4)
-- [ ] Queue-backed ingestion to absorb agent-swarm bursts (§4)
-- [ ] Per-tenant partitioning (§4)
 - [ ] Multi-region and disaster recovery; documented RPO/RTO; **tested restore** (§4)
 - [ ] Observability: structured logs, metrics, tracing, per-agent cost attribution (§4)
 - [ ] SLOs — pre-check p99, settlement lag, block/allow correctness — and alerts (§4)
 - [ ] Circuit breakers, load shedding, retries with backoff (§2.1, §4)
-- [ ] CI running the full test pyramid as a merge gate (§8) — nothing gates a push today
-- [ ] Deploy the dashboard; it runs on localhost only
+- [ ] Monitoring on the contract itself — spend spikes, pauses, an approaching ceiling
+- [ ] CI running the full test pyramid as a merge gate (§8)
 
 ---
 
@@ -210,7 +340,6 @@ These come first. They are what a serious reviewer attacks.
 - [ ] Multi-agent org features: roles, multi-party approval, org-wide policy (§5.2)
 - [ ] Attribution service and exportable audit/compliance reports (§2.3, §5.2)
 - [ ] Warehouse for analytics and attribution (§4)
-- [ ] Mobile app — passkey onboarding, notifications, multi-agent views (§5.1)
 - [ ] Multi-chain via CCTP v2 (§9)
 - [ ] Open-source the SDK and contract interfaces (§6)
 - [ ] Progressive decentralisation of the primitive (§9)
@@ -225,9 +354,11 @@ These come first. They are what a serious reviewer attacks.
 - [ ] **ERC-8183 escrow routing** (ADR 0005)
 - [ ] Gateway nanopayment enforcement — per-call x402 settles off-chain, beyond contract
       reach; our enforcement point is the top-up (ADR 0005)
-- [!] Paymaster / gas sponsorship — unsupported on Arc (`circle-feedback.md`)
+- [!] Paymaster / gas sponsorship — unsupported on Arc (`circle-feedback.md` §2)
 - [ ] Engage Build-on-Circle and Arc House; pursue Builders Fund (§6)
 - [ ] Decide what stays proprietary: managed service, dashboard, compliance (§6)
+- [ ] Send `circle-feedback.md` to Circle — six findings, including a reproducible gas
+      estimator defect, currently sitting in our repo helping nobody
 
 ---
 
@@ -259,22 +390,26 @@ Everything else on this page is post-submission.
 - [x] Working contract, agent, dashboard, public repo
 - [x] `docs/circle-feedback.md`
 - [ ] `docs/demo-script.md`
+- [ ] `docs/architecture.md`
 - [ ] 3-minute video
 - [ ] Deck
-- [ ] `docs/architecture.md`
 
 ---
 
-## The four honesty gaps
+## The honesty gaps
 
 Repeated from `BACKLOG.md` because they matter more than any feature above. These are
-places where the claim is currently stronger than the evidence.
+places where the claim is currently stronger than the evidence. Two of the original four
+are now closed.
 
-1. **The dashboard cannot show a refusal.** The central claim is "it stops things," and the
-   UI can only display what got through.
+1. ~~**The dashboard cannot show a refusal.**~~ **Closed.** `trySpend` emits `Refused`, and
+   the dashboard renders refusals with a reason and a transaction link.
 2. **The attack demo depends on a model's choices.** Two contract refusals are evidence;
-   the model's reasoning is not.
-3. **The owner key lives in a `.env` file.**
+   the model's reasoning is not. Open.
+3. **The owner key lives in a `.env` file.** Open, and now the largest one.
 4. **The invariant suite once passed vacuously** — zero successful spends across 32,768
    calls, all eight invariants green. Fixed and locked in with a deterministic coverage
    test, but a standing reminder that green is not proof.
+
+A fifth, added since: **nothing outside the contract is tested at all.** 47 Solidity tests
+and zero TypeScript tests, guarding money-moving code in three packages.

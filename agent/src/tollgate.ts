@@ -4,6 +4,7 @@ import {
   withGasBuffer,
   arcFees,
   arcTestnet,
+  ARC_POLLING_INTERVAL_MS,
   policyEngineAbi,
   Reason,
   explainToAgent,
@@ -11,7 +12,15 @@ import {
   reasonName,
   type Policy,
 } from "@tollgate/shared";
-import {createPublicClient, createWalletClient, formatUnits, http, type Address, type Hex} from "viem";
+import {
+  createPublicClient,
+  createWalletClient,
+  formatUnits,
+  http,
+  type Address,
+  type Hex,
+  type Transport,
+} from "viem";
 import {privateKeyToAccount} from "viem/accounts";
 
 /**
@@ -170,6 +179,16 @@ export interface TollgateConfig {
   engine: Address;
   agentPrivateKey: Hex;
   rpcUrl?: string;
+  /**
+   * Override the network transport.
+   *
+   * Exists so the client can be driven against a stub node in tests. The paths worth
+   * testing here are the ones a live chain will not reproduce on demand — a receipt that
+   * never arrives, a simulation that refuses, three payments racing for one nonce — and
+   * without this seam none of them is reachable except by spending real money and hoping
+   * for the right weather. Production passes `rpcUrl` and never touches this.
+   */
+  transport?: Transport;
 }
 
 export class TollgateClient {
@@ -205,8 +224,13 @@ export class TollgateClient {
     this.#account = privateKeyToAccount(config.agentPrivateKey);
     this.agentAddress = this.#account.address;
 
-    const transport = http(config.rpcUrl ?? arcTestnet.rpcUrls.default.http[0]);
-    this.#publicClient = createPublicClient({chain: arcTestnet, transport});
+    const transport = config.transport ?? http(config.rpcUrl ?? arcTestnet.rpcUrls.default.http[0]);
+    this.#publicClient = createPublicClient({
+      chain: arcTestnet,
+      transport,
+      // viem's 4s default is tuned for Ethereum's block time; Arc settles in under a second.
+      pollingInterval: ARC_POLLING_INTERVAL_MS,
+    });
     this.#walletClient = createWalletClient({
       account: this.#account,
       chain: arcTestnet,

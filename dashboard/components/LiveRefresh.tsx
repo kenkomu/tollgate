@@ -21,10 +21,15 @@ export function LiveRefresh({seconds = 12}: {seconds?: number}) {
   const router = useRouter();
   const [live, setLive] = useState(true);
   const [age, setAge] = useState(0);
-  const lastRefresh = useRef(Date.now());
+
+  // Seeded in the effect rather than at `useRef(Date.now())`, because reading the clock
+  // during render makes the component impure: the server and the client would seed it at
+  // different instants, which is the same class of hydration mismatch SpendChart hit.
+  const lastRefresh = useRef(0);
 
   useEffect(() => {
     if (!live) return;
+    lastRefresh.current = Date.now();
 
     const tick = setInterval(() => {
       if (document.visibilityState !== "visible") return;

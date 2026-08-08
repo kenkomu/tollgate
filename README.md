@@ -58,10 +58,9 @@ Every directory answers two questions: what is this, and what must never break h
 | **`enforcement/`** | **The trust core.** Solidity + Foundry. The only code here that is allowed to be wrong is none of it. |
 | `shared/` | ABI, reason codes, chain config. The single source of truth every TypeScript package imports. |
 | `dashboard/` | Next.js — the owner's control plane on the web. Policy setup, live spend feed, kill switch. |
-| `mobile/` | Expo — the same control plane on a phone. |
-| `service/` | Fastify workers: chain indexer, Gateway webhooks, reconciler. |
-| `agent/` | The demo agent (Claude Agent SDK + Circle Agent Stack). The thing being leashed. |
+| `agent/` | The demo agent (Claude Agent SDK). The thing being leashed. |
 | `docs/` | Architecture, threat model, and the decision record behind every choice above. |
+| `mobile/`, `service/` | **Empty.** Reserved for the phone control plane and the indexer. Neither is built — see `ROADMAP.md`. |
 
 Start in `enforcement/` and `docs/decisions/`. Everything else is convenience and can be rebuilt from chain state.
 
@@ -80,7 +79,7 @@ pnpm install
 Already cloned without `--recursive`? `git submodule update --init --recursive`.
 
 ```sh
-pnpm contracts:test      # 40 tests: unit, fuzz, invariant. The part that matters.
+pnpm contracts:test      # 47 tests: unit, fuzz, invariant. The part that matters.
 pnpm agent               # the agent does its job inside a budget it did not set
 pnpm agent:compromised   # the same agent, hostile instructions. It still cannot.
 pnpm dashboard           # http://localhost:3000

@@ -5,17 +5,18 @@ work that only makes sense months out.
 
 Ordered within each section by how much it matters, not by effort.
 
+`ROADMAP.md` is the phased view of the same scope, with gates. This file is the flat
+inventory. Both were reconciled against the source tree at commit `ee53870`.
+
 ---
 
 ## Contract
 
 ### Correctness and safety
 
-- [ ] **`setPayee` should reject `address(this)`.** An owner can currently allowlist the
-      PolicyEngine itself, which has no withdraw function — funds sent there are
-      unrecoverable. One-line fix. Not applied before submission because redeploying
-      invalidates the verified contract and every proof link in the demo. See
-      `docs/outcomes.md` §5.3.
+- [x] **`setPayee` rejects `address(this)`.** An owner could previously allowlist the
+      PolicyEngine itself, which has no withdraw function — funds sent there were
+      unrecoverable. Fixed and shipped in the redeploy. See `docs/outcomes.md` §5.3.
 - [ ] **External audit.** Nothing here has been reviewed by anyone but us and a fuzzer.
 - [ ] **Formal verification of the headline invariant** (`spent ≤ budgetCap`, always).
       Certora or Halmos. The invariant suite tests it; a prover would settle it.
@@ -63,15 +64,18 @@ Ordered within each section by how much it matters, not by effort.
       choosing to attack. A scripted adversary that tries every evasion in a fixed order
       would make the guarantee reproducible instead of anecdotal. **This is the single
       biggest honesty gap in the demo** — see below.
-- [ ] **Automatic retry on `EXCEEDS_VELOCITY`.** It is the only `retry-later` reason and the
-      agent currently just reports it. It should back off and resume.
-- [ ] **Stuck-transaction recovery.** `verify()` exists; automatic replace-by-fee at the
-      same nonce does not.
-- [ ] **Nonce management** for concurrent payments from one key.
-- [ ] **Gas balance monitoring.** An agent that runs out of gas fails in a way that looks
-      like a policy refusal but is not.
+- [x] **Automatic retry on `EXCEEDS_VELOCITY`.** The client computes the wait from the
+      bucket state and sleeps, or throws `VelocityWaitTooLongError` if the wait exceeds
+      the caller's patience.
+- [x] **Stuck-transaction recovery.** `unstick()` replaces at the same nonce — speed-up or
+      cancel — and detects an already-settled payment rather than sending a second one.
+- [x] **Nonce management** for concurrent payments from one key, via a serialisation queue.
+- [x] **Gas balance monitoring.** `gasHealth()` reports the agent's own fee balance
+      separately from the owner's budget, so an empty key never reads as a policy refusal.
 - [ ] **Real marketplace integration.** `marketplace.ts` is a local catalogue standing in
       for Circle's Agent Marketplace, which is Base-only.
+- [ ] **Persistent state across restarts.** An agent restarted mid-payment forgets the
+      in-flight transaction hash it was told not to retry.
 
 ---
 
@@ -81,20 +85,64 @@ Ordered within each section by how much it matters, not by effort.
       server-side from `DEPLOYER_PRIVATE_KEY` in `.env` — an MVP shortcut that sits badly
       against the non-custodial thesis. Should be a passkey or WalletConnect signature.
       Documented in `lib/owner.ts` and the threat model.
-- [ ] **Policy editing.** Caps, velocity and expiry are read-only in the UI; only pause and
-      payee approval are writable. The contract supports the rest.
-- [ ] **Refusal visibility.** Reverts emit no events, so the dashboard can prove what was
-      *allowed* and cannot show what was *stopped*. Needs either an indexer capturing
-      reverted transactions or an on-chain `Refused` event. **The most valuable single
-      item on this list** — it is the demo's core claim, and the UI currently cannot show it.
+- [x] **Policy editing.** All eight owner writes — caps, velocity, expiry, agent, payees,
+      allowance, revoke, and policy creation — are now editable from the UI.
+- [x] **Refusal visibility.** `trySpend` emits `Refused`, and the activity log renders
+      refusals with their reason and a link to the transaction that proves it.
+- [x] **Empty and error states** for a fresh deployment with no policy, and for an
+      unconfigured environment.
+- [ ] **Deployment.** It runs on localhost. Nothing is hosted.
+- [ ] **Authentication.** There is none. Whoever reaches the port is the owner.
 - [ ] **Notifications.** Email or push when the agent escalates or is refused. Requires a
       durable cursor, which requires a database. ADR 0006.
-- [ ] **Multi-owner / team accounts.**
+- [ ] **Multi-owner / team accounts**, roles, and multi-party approval.
 - [ ] **CSV export and accounting integration.**
 - [ ] **History beyond the 400k-block horizon.** Needs the indexer.
-- [ ] **Mobile.** Expo scaffold deferred.
-- [ ] **Empty and error states** for a fresh deployment with no policy — currently a bare
-      instruction to run a forge script.
+- [ ] **Real-time updates** over WebSocket rather than an interval refresh.
+- [ ] **Accessibility beyond the contrast pass** — keyboard traversal, screen reader
+      labelling, focus order through the policy editors.
+
+---
+
+## Web, beyond the dashboard
+
+None of this exists.
+
+- [ ] **Landing site.** No public page explains what this is to anyone who has not read
+      the repository.
+- [ ] **Documentation site** for the SDK — quickstart, API reference, examples.
+- [ ] **Public security page** and a written incident-response process. For a money-handling
+      trust layer the plan classes this as a product feature, not a chore.
+- [ ] **Status page**, once anything is hosted.
+- [ ] **The design system, formalised.** It currently lives as custom properties in one
+      `globals.css` and cannot be shared with a second surface.
+
+---
+
+## Mobile — Android and iOS
+
+`mobile/` is an empty directory. Nothing exists. The case for it is specific: a kill switch
+you must be at your laptop to reach is not a kill switch.
+
+- [ ] **Decide Expo/React Native vs native Kotlin**, as an ADR. React Native shares
+      `shared/` and the reason codes directly; native gives cleaner Credential Manager and
+      biometric integration.
+- [ ] **Passkey onboarding via Android Credential Manager.** Circle's modular-wallets SDK
+      is web-first, so this needs a WebAuthn bridge or a native path — the same blocked
+      dependency as the web passkey work. ADR 0001.
+- [ ] **Kill switch in one tap from a cold start**, behind a biometric gate.
+- [ ] **Approve a payee from a push notification**, with a deep link to the request.
+- [ ] **FCM push** for escalations and refusals — needs the backend and a device-token
+      registry, and therefore the database.
+- [ ] **Key storage in Android Keystore**, hardware-backed.
+- [ ] **Offline and stale-data handling.** A phone that cannot reach the RPC must say so
+      loudly. A cached "all clear" during an outage is the worst failure this app can have.
+- [ ] Live spend feed, budget and policy setup, progressive autonomy, multi-agent views.
+- [ ] Background sync and a home-screen widget showing remaining budget.
+- [ ] Play Store release: signing, privacy policy, data-safety declaration, and the extra
+      review financial apps attract.
+- [ ] Low-end device and slow-network testing.
+- [ ] iOS parity: Secure Enclave, APNs, App Store review.
 
 ---
 
@@ -107,17 +155,24 @@ Ordered within each section by how much it matters, not by effort.
 - [ ] **Monitoring and alerting** on the contract — a spend spike, a pause, an approaching
       budget ceiling.
 - [ ] **`service/` package.** Scaffolded, empty, and currently unjustified. Delete it or
-      fill it.
+      fill it. Either way, remove the dead `pnpm service` and `pnpm mobile` root scripts,
+      which both fail today.
 - [ ] **Mainnet.** Arc mainnet is not live.
-- [ ] **Fix the duplicated `POLICY_ENGINE_ADDRESS` in `.env`** — defined twice, empty first.
-      Last wins so nothing breaks, but it is a trap for the next person.
+- [x] **Fix the duplicated `POLICY_ENGINE_ADDRESS` in `.env`.**
 
 ---
 
 ## Testing
 
-- [ ] **End-to-end test of the agent loop.** 40 contract tests, zero tests of the agent.
-- [ ] **Dashboard tests.** None exist.
+47 Solidity tests. Zero TypeScript tests, across three packages that move money.
+
+- [ ] **Unit tests for `shared/`.** Token-bucket maths, `secondsUntilAvailable`, the
+      formatters, reason classification. Pure functions with no chain dependency.
+- [ ] **Unit tests for the agent.** The error taxonomy, the serialisation queue, the
+      back-off decision. `selftest.ts` covers the live paths but spends real money, so it
+      cannot run in CI.
+- [ ] **Dashboard tests.** None exist. Log decoding and the activity projection first.
+- [ ] **End-to-end test of the agent loop** against a local fork.
 - [ ] **Load-test the RPC assumptions.** The 20,000-block `eth_getLogs` limit was found by
       probing; it is not documented and could change.
 
@@ -130,9 +185,11 @@ Ordered within each section by how much it matters, not by effort.
 - [x] `docs/outcomes.md`
 - [x] `docs/tech-stack.md`
 - [x] `docs/decisions/0001`–`0006`
+- [x] `ROADMAP.md`
 - [ ] `docs/architecture.md`
 - [ ] `docs/demo-script.md`
-- [ ] `ROADMAP.md`
+- [ ] A written redeploy-and-migrate story. We have now redeployed once and still have no
+      migration path on paper.
 - [ ] SDK API reference
 
 ---
@@ -145,11 +202,13 @@ than the evidence, and closing them matters more than any feature above.
 1. **The compromised-agent demo depends on a model's choices.** In the run, the model
    refused the attack *and also* declined some routes on its own reasoning. The hard
    evidence is the two contract refusals; the model's commentary is not evidence. A
-   deterministic attacker fixes this.
-2. **The dashboard cannot show a refusal.** The product's central claim is "it stops
-   things," and the UI can only display what got through.
+   deterministic attacker fixes this. **Open.**
+2. ~~**The dashboard cannot show a refusal.**~~ **Closed.** `trySpend` records refusals on
+   chain and the activity log renders them with a proof link.
 3. **The owner key lives in a `.env` file.** Non-custodial in the contract, custodial in the
-   demo app.
+   demo app. **Open, and now the largest.**
 4. **The invariant suite was once passing vacuously** — zero successful spends across
    32,768 calls while all eight invariants reported green. Fixed, and locked in with a
    deterministic coverage test, but it is a reminder that a green suite is not proof.
+5. **Nothing outside the contract is tested.** Three TypeScript packages move money and
+   none of them has a single test. Added since the original four.

@@ -50,7 +50,6 @@ contract PolicyEngine is ReentrancyGuardTransient {
         EXCEEDS_VELOCITY, //       9  spending faster than the refill rate allows
         INSUFFICIENT_ALLOWANCE, // 10 owner has not approved enough
         INSUFFICIENT_BALANCE //    11 owner cannot cover it
-
     }
 
     struct Policy {
@@ -148,7 +147,9 @@ contract PolicyEngine is ReentrancyGuardTransient {
                                CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
-    constructor(IERC20 usdc) {
+    constructor(
+        IERC20 usdc
+    ) {
         if (address(usdc) == address(0)) revert ZeroAddress();
         USDC = usdc;
     }
@@ -216,7 +217,9 @@ contract PolicyEngine is ReentrancyGuardTransient {
     /// @dev    This is the kill switch. It is a direct owner -> chain write with no
     ///         backend, indexer or relayer in the path, so it keeps working when every
     ///         other part of Tollgate is down. That is a requirement, not a nicety.
-    function setPaused(bool paused) external {
+    function setPaused(
+        bool paused
+    ) external {
         Policy storage p = _policies[msg.sender];
         if (!p.exists) revert NoPolicy();
         p.paused = paused;
@@ -227,7 +230,10 @@ contract PolicyEngine is ReentrancyGuardTransient {
                            OWNER: POLICY CHANGES
     //////////////////////////////////////////////////////////////*/
 
-    function setCaps(uint128 budgetCap, uint128 perTxCap) external {
+    function setCaps(
+        uint128 budgetCap,
+        uint128 perTxCap
+    ) external {
         Policy storage p = _policies[msg.sender];
         if (!p.exists) revert NoPolicy();
         // Lowering the budget below what has already gone out would make `spent`
@@ -240,7 +246,10 @@ contract PolicyEngine is ReentrancyGuardTransient {
 
     /// @dev Settles the bucket at the old rate before the new one takes effect, so a
     ///      rate change can never retroactively mint or destroy available headroom.
-    function setVelocity(uint128 bucketCapacity, uint128 refillPerSecond) external {
+    function setVelocity(
+        uint128 bucketCapacity,
+        uint128 refillPerSecond
+    ) external {
         Policy storage p = _policies[msg.sender];
         if (!p.exists) revert NoPolicy();
 
@@ -253,7 +262,9 @@ contract PolicyEngine is ReentrancyGuardTransient {
         emit VelocityUpdated(msg.sender, bucketCapacity, refillPerSecond);
     }
 
-    function setExpiry(uint64 expiry) external {
+    function setExpiry(
+        uint64 expiry
+    ) external {
         Policy storage p = _policies[msg.sender];
         if (!p.exists) revert NoPolicy();
         p.expiry = expiry;
@@ -261,7 +272,9 @@ contract PolicyEngine is ReentrancyGuardTransient {
     }
 
     /// @notice Rotate the session key — the response to a suspected agent compromise.
-    function setAgent(address newAgent) external {
+    function setAgent(
+        address newAgent
+    ) external {
         if (newAgent == address(0)) revert ZeroAddress();
         Policy storage p = _policies[msg.sender];
         if (!p.exists) revert NoPolicy();
@@ -277,7 +290,10 @@ contract PolicyEngine is ReentrancyGuardTransient {
         emit AgentRotated(msg.sender, previous, newAgent);
     }
 
-    function setPayee(address payee, bool allowed) public {
+    function setPayee(
+        address payee,
+        bool allowed
+    ) public {
         if (payee == address(0)) revert ZeroAddress();
         // This contract holds nothing and can send nothing. USDC transferred here is
         // unrecoverable, and an owner allowlisting it would be one typo away from burning
@@ -288,7 +304,10 @@ contract PolicyEngine is ReentrancyGuardTransient {
         emit PayeeSet(msg.sender, payee, allowed);
     }
 
-    function setPayees(address[] calldata payees, bool allowed) external {
+    function setPayees(
+        address[] calldata payees,
+        bool allowed
+    ) external {
         for (uint256 i; i < payees.length; ++i) {
             setPayee(payees[i], allowed);
         }
@@ -301,7 +320,10 @@ contract PolicyEngine is ReentrancyGuardTransient {
     /// @notice Spend from the owner's wallet to an allowlisted payee, if policy permits.
     /// @dev    Caller must be the registered agent. Reverts with PolicyViolation otherwise.
     ///         Funds move owner -> payee. They never rest in this contract.
-    function spend(address payee, uint256 amount) external nonReentrant returns (uint128 spentTotal) {
+    function spend(
+        address payee,
+        uint256 amount
+    ) external nonReentrant returns (uint128 spentTotal) {
         (Reason r, uint128 total) = _attempt(payee, amount);
         // The revert discards the Refused log along with everything else, which is why a
         // caller that wants the refusal on the record uses `trySpend` instead.
@@ -318,13 +340,19 @@ contract PolicyEngine is ReentrancyGuardTransient {
     ///         a refusal as a payment — which is why `spend` remains the reverting default
     ///         and this is the deliberate opt-in.
     /// @return reason `OK` if the funds moved, otherwise why they did not.
-    function trySpend(address payee, uint256 amount) external nonReentrant returns (Reason reason) {
+    function trySpend(
+        address payee,
+        uint256 amount
+    ) external nonReentrant returns (Reason reason) {
         (reason,) = _attempt(payee, amount);
     }
 
     /// @dev The one implementation. `spend` and `trySpend` differ only in what they do
     ///      with the result, so they cannot diverge on what the policy actually is.
-    function _attempt(address payee, uint256 amount) internal returns (Reason, uint128) {
+    function _attempt(
+        address payee,
+        uint256 amount
+    ) internal returns (Reason, uint128) {
         address owner = ownerOf[msg.sender];
         if (owner == address(0)) {
             emit Refused(address(0), msg.sender, payee, amount, Reason.NO_POLICY);
@@ -365,24 +393,34 @@ contract PolicyEngine is ReentrancyGuardTransient {
     /// @notice Would this spend be permitted right now? Returns a reason code instead of
     ///         reverting, so the SDK and dashboard can explain a block before one happens.
     /// @dev    This is the same evaluation `spend` performs. It cannot drift from it.
-    function checkTransfer(address agent, address payee, uint256 amount) external view returns (Reason) {
+    function checkTransfer(
+        address agent,
+        address payee,
+        uint256 amount
+    ) external view returns (Reason) {
         address owner = ownerOf[agent];
         if (owner == address(0)) return Reason.NO_POLICY;
         return _evaluate(_policies[owner], owner, agent, payee, amount);
     }
 
     /// @notice Velocity headroom for an owner as of this block.
-    function availableNow(address owner) external view returns (uint128) {
+    function availableNow(
+        address owner
+    ) external view returns (uint128) {
         return _availableNow(_policies[owner]);
     }
 
     /// @notice Remaining lifetime budget.
-    function remainingBudget(address owner) external view returns (uint128) {
+    function remainingBudget(
+        address owner
+    ) external view returns (uint128) {
         Policy storage p = _policies[owner];
         return p.budgetCap > p.spent ? p.budgetCap - p.spent : 0;
     }
 
-    function getPolicy(address owner) external view returns (Policy memory) {
+    function getPolicy(
+        address owner
+    ) external view returns (Policy memory) {
         return _policies[owner];
     }
 
@@ -391,11 +429,13 @@ contract PolicyEngine is ReentrancyGuardTransient {
     //////////////////////////////////////////////////////////////*/
 
     /// @dev The single implementation of policy. Both `spend` and `checkTransfer` use it.
-    function _evaluate(Policy storage p, address owner, address agent, address payee, uint256 amount)
-        internal
-        view
-        returns (Reason)
-    {
+    function _evaluate(
+        Policy storage p,
+        address owner,
+        address agent,
+        address payee,
+        uint256 amount
+    ) internal view returns (Reason) {
         if (!p.exists) return Reason.NO_POLICY;
         if (p.agent != agent) return Reason.NOT_AGENT;
         if (p.paused) return Reason.PAUSED;
@@ -426,7 +466,9 @@ contract PolicyEngine is ReentrancyGuardTransient {
     ///      capped at `bucketCapacity`, so outflow over any window of length T is at
     ///      most capacity + T*rate — with no burst at a window boundary, which is the
     ///      failure mode a tumbling window has. See docs/decisions/0002.
-    function _availableNow(Policy storage p) internal view returns (uint128) {
+    function _availableNow(
+        Policy storage p
+    ) internal view returns (uint128) {
         if (!p.exists) return 0;
         uint256 elapsed = block.timestamp - p.lastRefill;
         // uint64 elapsed * uint128 rate cannot overflow uint256.

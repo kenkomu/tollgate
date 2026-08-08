@@ -5,7 +5,7 @@ import {availableNow, formatUsdc, formatUsdcApprox} from "@tollgate/shared";
 import {Feed} from "../components/Feed.tsx";
 import {Meter} from "../components/Meter.tsx";
 import {NoPolicy, NotConfigured, PageHead} from "../components/PageHead.tsx";
-import {SkeletonFeed, SkeletonTiles} from "../components/Skeleton.tsx";
+import {SkeletonTiles} from "../components/Skeleton.tsx";
 import {SpendChart, type SpendPoint} from "../components/SpendChart.tsx";
 import {StatTile} from "../components/StatTile.tsx";
 import {Verdict} from "../components/Verdict.tsx";
@@ -20,6 +20,19 @@ export const dynamic = "force-dynamic";
  */
 async function SpendSection({owner: who, budgetCap}: {owner: Address; budgetCap: bigint}) {
   const audit = await auditFor(who);
+
+  /**
+   * The chart's right-hand bound, read once on the server and passed down as a prop.
+   *
+   * react-hooks/purity flags any clock read during render, and for a client component it is
+   * right to: server and client would seed different instants and the markup would not match,
+   * which is exactly the hydration mismatch SpendChart already hit once. This is an async
+   * Server Component under `force-dynamic`, so it renders once per request and never
+   * re-renders — the read is deliberate, and passing the value down is what makes the chart
+   * a pure function of its props.
+   */
+  // eslint-disable-next-line react-hooks/purity
+  const now = Math.floor(Date.now() / 1000);
   const payments = audit.entries.filter((entry) => entry.kind === "paid");
   const refusals = audit.entries.filter((entry) => entry.kind === "refused");
   const blocked = refusals.reduce((sum, entry) => sum + (entry.amount ?? 0n), 0n);
@@ -72,7 +85,7 @@ async function SpendSection({owner: who, budgetCap}: {owner: Address; budgetCap:
         <SpendChart
           points={points}
           budgetCap={budgetCap}
-          now={Math.floor(Date.now() / 1000)}
+          now={now}
           startLabel={
             points.length
               ? new Date(points[0]!.timestamp * 1000).toLocaleDateString("en-US", {

@@ -184,6 +184,17 @@ export function withGasBuffer(estimate: bigint): bigint {
   return (estimate * (100n + GAS_BUFFER_PERCENT)) / 100n;
 }
 
+/**
+ * How often to poll Arc for new state.
+ *
+ * viem defaults to 4,000ms, which is tuned for Ethereum's ~12s blocks. Arc has sub-second
+ * finality, so the default spends most of a receipt's wait doing nothing — a payment that
+ * settled in 400ms is not noticed for up to four seconds, and every agent action inherits
+ * that latency. 500ms tracks the block time without hammering the endpoint, which matters
+ * because Arc rate-limits bursts with -32005.
+ */
+export const ARC_POLLING_INTERVAL_MS = 500;
+
 export const FAUCET_URL = "https://faucet.circle.com";
 
 export function explorerTx(hash: string): string {

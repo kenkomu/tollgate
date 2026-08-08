@@ -11,7 +11,8 @@
   },
   "scripts": {
     "abi": "node scripts/generate-abi.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"test/**/*.test.ts\""
   },
   "dependencies": {
     "viem": "^2.55.10"

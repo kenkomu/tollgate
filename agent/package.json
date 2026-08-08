@@ -5,12 +5,13 @@
   "description": "The agent being leashed. Claude Agent SDK, spending USDC on Arc through Tollgate.",
   "type": "module",
   "engines": {
-    "node": ">=22.11.0"
+    "node": ">=22.18.0"
   },
   "scripts": {
     "demo": "node --env-file=../.env src/index.ts",
     "compromised": "node --env-file=../.env src/index.ts --compromised",
     "typecheck": "tsc --noEmit",
+    "test": "node --test \"test/**/*.test.ts\"",
     "selftest": "node --env-file=../.env src/selftest.ts"
   },
   "dependencies": {

@@ -67,7 +67,9 @@ contract PolicyEngineTest is Test {
     function test_reason_noPolicy() public {
         assertEq(uint256(engine.checkTransfer(stranger, payee, 1e6)), uint256(PolicyEngine.Reason.NO_POLICY));
         vm.prank(stranger);
-        vm.expectRevert(abi.encodeWithSelector(PolicyEngine.PolicyViolation.selector, PolicyEngine.Reason.NO_POLICY));
+        vm.expectRevert(
+            abi.encodeWithSelector(PolicyEngine.PolicyViolation.selector, PolicyEngine.Reason.NO_POLICY)
+        );
         engine.spend(payee, 1e6);
     }
 
@@ -152,7 +154,9 @@ contract PolicyEngineTest is Test {
 
         // ...pay themselves? Not on the allowlist.
         vm.expectRevert(
-            abi.encodeWithSelector(PolicyEngine.PolicyViolation.selector, PolicyEngine.Reason.PAYEE_NOT_ALLOWED)
+            abi.encodeWithSelector(
+                PolicyEngine.PolicyViolation.selector, PolicyEngine.Reason.PAYEE_NOT_ALLOWED
+            )
         );
         engine.spend(stranger, 1e6);
 
@@ -166,7 +170,9 @@ contract PolicyEngineTest is Test {
         engine.spend(payee, PER_TX);
         engine.spend(payee, PER_TX);
         vm.expectRevert(
-            abi.encodeWithSelector(PolicyEngine.PolicyViolation.selector, PolicyEngine.Reason.EXCEEDS_VELOCITY)
+            abi.encodeWithSelector(
+                PolicyEngine.PolicyViolation.selector, PolicyEngine.Reason.EXCEEDS_VELOCITY
+            )
         );
         engine.spend(payee, PER_TX);
         vm.stopPrank();
@@ -182,7 +188,9 @@ contract PolicyEngineTest is Test {
         engine.setPaused(true);
 
         vm.prank(agent);
-        vm.expectRevert(abi.encodeWithSelector(PolicyEngine.PolicyViolation.selector, PolicyEngine.Reason.PAUSED));
+        vm.expectRevert(
+            abi.encodeWithSelector(PolicyEngine.PolicyViolation.selector, PolicyEngine.Reason.PAUSED)
+        );
         engine.spend(payee, 1e6);
     }
 
@@ -200,7 +208,9 @@ contract PolicyEngineTest is Test {
         engine.setAgent(newAgent);
 
         vm.prank(agent);
-        vm.expectRevert(abi.encodeWithSelector(PolicyEngine.PolicyViolation.selector, PolicyEngine.Reason.NO_POLICY));
+        vm.expectRevert(
+            abi.encodeWithSelector(PolicyEngine.PolicyViolation.selector, PolicyEngine.Reason.NO_POLICY)
+        );
         engine.spend(payee, 1e6);
 
         vm.prank(newAgent);
@@ -286,7 +296,9 @@ contract PolicyEngineTest is Test {
         engine.spend(payee, 100e6);
 
         vm.prank(owner);
-        vm.expectRevert(abi.encodeWithSelector(PolicyEngine.BudgetBelowSpent.selector, uint128(50e6), uint128(100e6)));
+        vm.expectRevert(
+            abi.encodeWithSelector(PolicyEngine.BudgetBelowSpent.selector, uint128(50e6), uint128(100e6))
+        );
         engine.setCaps(50e6, PER_TX);
     }
 
@@ -309,7 +321,9 @@ contract PolicyEngineTest is Test {
 
         assertEq(engine.ownerOf(agent), address(0));
         vm.prank(agent);
-        vm.expectRevert(abi.encodeWithSelector(PolicyEngine.PolicyViolation.selector, PolicyEngine.Reason.NO_POLICY));
+        vm.expectRevert(
+            abi.encodeWithSelector(PolicyEngine.PolicyViolation.selector, PolicyEngine.Reason.NO_POLICY)
+        );
         engine.spend(payee, 1e6);
     }
 
@@ -326,7 +340,11 @@ contract PolicyEngineTest is Test {
                                   FUZZ
     //////////////////////////////////////////////////////////////*/
 
-    function testFuzz_spendNeverExceedsBudget(uint128 a, uint128 b, uint128 c) public {
+    function testFuzz_spendNeverExceedsBudget(
+        uint128 a,
+        uint128 b,
+        uint128 c
+    ) public {
         vm.startPrank(owner);
         engine.setVelocity(type(uint128).max, type(uint128).max);
         engine.setCaps(BUDGET, BUDGET);
@@ -340,7 +358,10 @@ contract PolicyEngineTest is Test {
         assertLe(engine.getPolicy(owner).spent, BUDGET, "spent never exceeds budgetCap");
     }
 
-    function testFuzz_blockedSpendMovesNothing(uint256 amount, address to) public {
+    function testFuzz_blockedSpendMovesNothing(
+        uint256 amount,
+        address to
+    ) public {
         vm.assume(to != address(0) && to != owner);
         uint256 balBefore = usdc.balanceOf(owner);
         uint128 spentBefore = engine.getPolicy(owner).spent;
@@ -440,14 +461,20 @@ contract PolicyEngineTest is Test {
         engine.setPayee(address(0), true);
     }
 
-    function _expectBlocked(PolicyEngine.Reason reason, address to, uint256 amount) internal {
+    function _expectBlocked(
+        PolicyEngine.Reason reason,
+        address to,
+        uint256 amount
+    ) internal {
         assertEq(uint256(engine.checkTransfer(agent, to, amount)), uint256(reason), "checkTransfer reason");
         vm.prank(agent);
         vm.expectRevert(abi.encodeWithSelector(PolicyEngine.PolicyViolation.selector, reason));
         engine.spend(to, amount);
     }
 
-    function _trySpend(uint128 amount) internal {
+    function _trySpend(
+        uint128 amount
+    ) internal {
         vm.prank(agent);
         try engine.spend(payee, amount) {} catch {}
     }

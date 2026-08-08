@@ -1,11 +1,10 @@
 import {Suspense} from "react";
 import {ApprovalQueue} from "../../components/ApprovalQueue.tsx";
-import {ExternalIcon} from "../../components/Icon.tsx";
 import {NotConfigured, PageHead} from "../../components/PageHead.tsx";
 import {PayeeRow} from "../../components/PayeeRow.tsx";
 import {AddPayeeEditor} from "../../components/PolicyEditors.tsx";
 import {auditFor, owner, pendingApprovals} from "../../lib/data.ts";
-import {addressUrl, isConfigured} from "../../lib/chain.ts";
+import {isConfigured} from "../../lib/chain.ts";
 
 export const dynamic = "force-dynamic";
 
