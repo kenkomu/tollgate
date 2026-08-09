@@ -1,5 +1,6 @@
 packages:
   - shared
+  - service
   - dashboard
   - agent
 
@@ -7,10 +8,11 @@ packages:
 # Its ABI reaches the rest of the repo through shared/, which is the only
 # place contract types are allowed to enter TypeScript.
 #
-# mobile/ and service/ do not exist. They were scaffolded as empty directories and
-# removed rather than left as decoration — an empty package with a script that fails is
-# worse than an honest absence. Both are real planned surfaces; see ROADMAP.md. The
-# backend is deliberately deferred per ADR 0006, and the mobile decision is ADR 0007.
+# service/ arrived when mobile forced it: push notifications need a device registry and a
+# durable cursor of what has already been sent, and neither has an on-chain answer. It is a
+# cache in front of the chain under the rules in ADR 0006, never an authority over it.
+#
+# mobile/ is next; the stack decision is ADR 0007.
 
 # unrs-resolver is a native binary used by eslint-config-next's resolver. It runs a
 # postinstall build, which pnpm blocks by default. Allowed explicitly rather than left

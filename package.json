@@ -13,6 +13,7 @@
     "contracts:invariant": "cd enforcement && forge test --match-path 'test/invariant/*' -vv",
     "contracts:fmt": "cd enforcement && forge fmt",
     "dashboard": "pnpm --filter @tollgate/dashboard dev",
+    "service": "pnpm --filter @tollgate/service dev",
     "agent": "pnpm --filter @tollgate/agent demo",
     "agent:compromised": "pnpm --filter @tollgate/agent compromised",
     "balances": "pnpm --filter @tollgate/agent balances",

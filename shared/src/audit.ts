@@ -1,10 +1,6 @@
-import {
-  MAX_HISTORY_BLOCKS,
-  MAX_LOG_BLOCK_RANGE,
-  explainToOwner,
-  spendKey,
-  type Reason,
-} from "@tollgate/shared";
+import {MAX_HISTORY_BLOCKS, MAX_LOG_BLOCK_RANGE} from "./chain.ts";
+import {spendKey} from "./policy.ts";
+import {explainToOwner, type Reason} from "./reasons.ts";
 import type {Address} from "viem";
 
 /**
@@ -20,6 +16,16 @@ import type {Address} from "viem";
  * Where it lands, it should call these rather than reimplement them.
  */
 
+/**
+ * Every kind of thing that can appear in the log.
+ *
+ * `PolicyEngine` emits ten events and this once covered five of them, silently dropping every
+ * change the *owner* made to the leash — a raised budget, a widened rate limit, a rotated
+ * agent key, a revoked policy. Those are not incidental: "the cap went from $10 to $20 an hour
+ * before the big payment" is exactly the sequence an audit log exists to make visible, and it
+ * was invisible. An evidence log that records only what the agent did, and not what the rules
+ * were at the time, cannot answer the question it is there to answer.
+ */
 export type ActivityKind =
   | "paid"
   | "refused"
@@ -27,7 +33,12 @@ export type ActivityKind =
   | "payee-removed"
   | "paused"
   | "resumed"
-  | "policy-created";
+  | "policy-created"
+  | "caps-changed"
+  | "velocity-changed"
+  | "expiry-changed"
+  | "agent-rotated"
+  | "policy-revoked";
 
 export interface Activity {
   key: string;
@@ -35,14 +46,30 @@ export interface Activity {
   blockNumber: bigint;
   timestamp: number;
   txHash: string;
-  /** Present on payments. */
-  amount?: bigint;
-  payee?: Address;
-  agent?: Address;
-  spentTotal?: bigint;
-  availableAfter?: bigint;
+  /**
+   * Present on payments.
+   *
+   * Spelled `?: T | undefined` rather than `?: T` because this package compiles with
+   * `exactOptionalPropertyTypes`. A decoded log with `strict: false` genuinely can carry an
+   * absent field, and the stricter reading is the honest one: "this key may be present and
+   * hold undefined" is what actually happens when an event shape changes under us.
+   */
+  amount?: bigint | undefined;
+  payee?: Address | undefined;
+  agent?: Address | undefined;
+  spentTotal?: bigint | undefined;
+  availableAfter?: bigint | undefined;
   /** Present on refusals — why the contract said no. */
-  reason?: Reason;
+  reason?: Reason | undefined;
+  /**
+   * The new values, on an owner policy change.
+   *
+   * Two numbers on caps and velocity, one on expiry. Kept generic rather than one field per
+   * event so a future rule does not need a schema change everywhere this is stored.
+   */
+  detail?: {label: string; values: bigint[]} | undefined;
+  /** On a rotation, the key that was replaced. */
+  previousAgent?: Address | undefined;
 }
 
 export interface AuditLog {
@@ -120,6 +147,13 @@ export function projectAuditLog(logs: readonly EngineLog[], owner: Address): Aud
       reason?: number;
       allowed?: boolean;
       paused?: boolean;
+      budgetCap?: bigint;
+      perTxCap?: bigint;
+      bucketCapacity?: bigint;
+      refillPerSecond?: bigint;
+      expiry?: bigint;
+      newAgent?: Address;
+      previousAgent?: Address;
     };
 
     const base = {
@@ -170,6 +204,48 @@ export function projectAuditLog(logs: readonly EngineLog[], owner: Address): Aud
       case "PolicyCreated":
         entries.push({...base, kind: "policy-created"});
         break;
+
+      // The owner changing the rules. Recorded with the new values, because "caps changed"
+      // without the numbers tells a reader that something moved and not whether it mattered.
+      case "CapsUpdated":
+        entries.push({
+          ...base,
+          kind: "caps-changed",
+          detail: {label: "budget / per-payment", values: [a.budgetCap ?? 0n, a.perTxCap ?? 0n]},
+        });
+        break;
+
+      case "VelocityUpdated":
+        entries.push({
+          ...base,
+          kind: "velocity-changed",
+          detail: {
+            label: "burst / refill per second",
+            values: [a.bucketCapacity ?? 0n, a.refillPerSecond ?? 0n],
+          },
+        });
+        break;
+
+      case "ExpiryUpdated":
+        entries.push({
+          ...base,
+          kind: "expiry-changed",
+          detail: {label: "expiry", values: [a.expiry ?? 0n]},
+        });
+        break;
+
+      case "AgentRotated":
+        entries.push({
+          ...base,
+          kind: "agent-rotated",
+          agent: a.newAgent,
+          previousAgent: a.previousAgent,
+        });
+        break;
+
+      case "PolicyRevoked":
+        entries.push({...base, kind: "policy-revoked", agent: a.agent});
+        break;
     }
   }
 
@@ -204,6 +280,16 @@ export function describe(entry: Activity): string {
       return "You resumed the agent";
     case "policy-created":
       return "Policy created";
+    case "caps-changed":
+      return "You changed the spending limits";
+    case "velocity-changed":
+      return "You changed the rate limit";
+    case "expiry-changed":
+      return "You changed when access expires";
+    case "agent-rotated":
+      return "You replaced the agent key";
+    case "policy-revoked":
+      return "You revoked the policy";
   }
 }
 

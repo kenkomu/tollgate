@@ -11,6 +11,7 @@
  */
 export * from "./abi.ts";
 export * from "./amounts.ts";
+export * from "./audit.ts";
 export * from "./chain.ts";
 export * from "./policy.ts";
 export * from "./reasons.ts";

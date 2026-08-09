@@ -1,11 +1,16 @@
-import {POLICY_ENGINE_DEPLOY_BLOCK} from "@tollgate/shared";
+import {
+  POLICY_ENGINE_DEPLOY_BLOCK,
+  planWindows,
+  projectAuditLog,
+  type AuditLog,
+  type EngineLog,
+} from "@tollgate/shared";
 import {parseEventLogs, type Address} from "viem";
 import {ENGINE, abi, publicClient} from "./chain.ts";
-import {planWindows, projectAuditLog, type AuditLog, type EngineLog} from "./audit.ts";
 import {loadWindows, saveWindows} from "./logcache.ts";
 
-export {describe, reasonText} from "./audit.ts";
-export type {Activity, ActivityKind, AuditLog} from "./audit.ts";
+export {describe, reasonText} from "@tollgate/shared";
+export type {Activity, ActivityKind, AuditLog} from "@tollgate/shared";
 
 /**
  * Reading the audit log from chain.

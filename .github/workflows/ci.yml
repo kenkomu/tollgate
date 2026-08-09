@@ -70,6 +70,9 @@ jobs:
 
       # Unit tests only. `agent/src/selftest.ts` is deliberately excluded: it spends real
       # testnet USDC against a live policy, so it can never be a merge gate.
+      #
+      # The service suite needs no database of its own — every test opens SQLite in memory,
+      # which is why `node:sqlite` being in the standard library matters here too.
       - name: Test
         run: pnpm test
 

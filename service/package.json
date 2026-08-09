@@ -1,0 +1,25 @@
+{
+  "name": "@tollgate/service",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Indexer, notification cursor and API. A cache in front of the chain, never an authority over it.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "dev": "node --env-file=../.env --watch src/index.ts",
+    "start": "node --env-file=../.env src/index.ts",
+    "index": "node --env-file=../.env src/backfill.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"test/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@tollgate/shared": "workspace:*",
+    "viem": "^2.55.10"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.9.3"
+  }
+}
