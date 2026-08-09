@@ -76,6 +76,26 @@ jobs:
       - name: Test
         run: pnpm test
 
+  mobile:
+    name: Mobile bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Metro resolves differently from tsc, so a typecheck passing does not mean the app
+      # bundles. The web target is the cheapest way to prove it in CI — no emulator, no
+      # Android SDK — and it exercises the same module graph as the native builds.
+      - name: Bundle
+        run: pnpm --filter @tollgate/mobile exec expo export --platform web --output-dir /tmp/mobile-web
+
   build:
     name: Dashboard build
     runs-on: ubuntu-latest

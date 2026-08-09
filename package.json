@@ -16,6 +16,7 @@
     "service": "pnpm --filter @tollgate/service dev",
     "agent": "pnpm --filter @tollgate/agent demo",
     "agent:compromised": "pnpm --filter @tollgate/agent compromised",
+    "mobile": "pnpm --filter @tollgate/mobile start",
     "balances": "pnpm --filter @tollgate/agent balances",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
@@ -23,7 +24,7 @@
     "test:all": "pnpm contracts:test && pnpm typecheck && pnpm test"
   },
   "devDependencies": {
-    "typescript": "^5.9.3",
+    "typescript": "~6.0.3",
     "@types/node": "^22.10.2"
   }
 }

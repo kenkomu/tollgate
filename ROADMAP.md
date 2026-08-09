@@ -228,7 +228,7 @@ your laptop to use is not a kill switch.
 - [x] **Expo/React Native vs native Kotlin** — ADR 0007: React Native via Expo, Android
       first, so reason codes and token-bucket maths come from `shared/` rather than being
       reimplemented in Kotlin where nothing guards the drift
-- [!] **Scaffold the app** — blocked on sign-off before any install or scaffold is run
+- [x] **Scaffold the app** — Expo SDK 57, wired into the workspace against `@tollgate/shared`
 - [ ] Whether mobile is approve-and-kill only, or full policy editing (open in ADR 0007)
 
 ### Core screens (§5.1)

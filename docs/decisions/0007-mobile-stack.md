@@ -1,6 +1,6 @@
 # ADR 0007 — React Native for the mobile control plane
 
-**Status:** proposed — needs sign-off before any scaffold is created
+**Status:** accepted — scaffolded and running on SDK 57
 **Date:** 2026-08-08
 
 ## The question

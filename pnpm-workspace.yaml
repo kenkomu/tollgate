@@ -3,6 +3,7 @@ packages:
   - service
   - dashboard
   - agent
+  - mobile
 
 # enforcement/ is deliberately absent — it is a Foundry project, not a JS package.
 # Its ABI reaches the rest of the repo through shared/, which is the only
@@ -12,7 +13,8 @@ packages:
 # durable cursor of what has already been sent, and neither has an on-chain answer. It is a
 # cache in front of the chain under the rules in ADR 0006, never an authority over it.
 #
-# mobile/ is next; the stack decision is ADR 0007.
+# mobile/ is Expo + React Native, Android first, so the reason codes and token-bucket
+# maths come from shared/ rather than being reimplemented. ADR 0007.
 
 # unrs-resolver is a native binary used by eslint-config-next's resolver. It runs a
 # postinstall build, which pnpm blocks by default. Allowed explicitly rather than left

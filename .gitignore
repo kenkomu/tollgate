@@ -36,3 +36,6 @@ mobile/*.p12
 .idea/
 *.log
 .tollgate/
+
+# expo
+mobile/.claude/

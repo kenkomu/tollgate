@@ -1,0 +1,18 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    // Relative imports carry real .ts/.tsx extensions, matching every other package in this
+    // repo. Metro resolves them, and keeping one convention across the workspace means a file
+    // can move between packages without its imports being rewritten.
+    "allowImportingTsExtensions": true,
+    "noUncheckedIndexedAccess": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    // The app runs in Hermes, but its tests run in Node. Expo's base config narrows `types`
+    // to React Native's, which drops `node:test` and `node:assert` from the test files.
+    "types": ["node", "react", "react-native"]
+  },
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
+  "exclude": ["node_modules"]
+}

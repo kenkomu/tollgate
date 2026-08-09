@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "Tollgate",
+    "slug": "tollgate",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.tollgate.owner"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "app.tollgate.owner"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "scheme": "tollgate",
+    "extra": {
+      "apiUrl": "http://localhost:8080",
+      "engine": "0x8168eb562496A966f339a4bD165B924EeDce9873",
+      "owner": "0x8dEa7F60FB144Ea127F6806302E6a83913348B69"
+    }
+  }
+}
