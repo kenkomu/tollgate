@@ -20,7 +20,7 @@ architecture is mostly an argument that no such path exists.
 ## The payment path
 
 ```
-   Owner (EOA today, passkey later)              Agent (session key)
+   Owner (own wallet, signs in browser)          Agent (session key)
         │                                              │
         │ approve(PolicyEngine, exactBudget)           │ trySpend(payee, amount)
         │ createPolicy(caps, velocity, expiry)         │
@@ -205,13 +205,15 @@ routing is the answer and it is documented as a stretch in ADR 0005, not solved.
 Stated here rather than buried, because an architecture document that only lists strengths is
 marketing.
 
-1. **The owner's key is in a `.env` file.** Owner actions are signed server-side. The contract
-   is non-custodial; the demo app around it is not. This is the largest open gap.
-2. **The attack demo depends on a model choosing to attack.** The hard evidence is the
+1. **The attack demo depends on a model choosing to attack.** The hard evidence is the
    contract refusals; the model's commentary is not evidence. A deterministic adversary would
-   make the guarantee reproducible.
-3. **One policy per owner**, so "an operator's fleet" is currently one agent.
-4. **Nothing is hosted.** It runs on a laptop against testnet. Arc mainnet is not live.
+   make the guarantee reproducible. This is now the largest open gap.
+2. **One policy per owner**, so "an operator's fleet" is currently one agent.
+3. **Nothing is hosted.** It runs on a laptop against testnet. Arc mainnet is not live.
+4. **No mobile app**, so the kill switch requires a laptop. ADR 0007.
+
+Closed since this document was first written: the owner's key no longer exists on the server —
+owner actions are signed in the browser by the owner's own wallet (ADR 0008).
 
 ---
 
