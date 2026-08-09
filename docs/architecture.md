@@ -41,10 +41,16 @@ architecture is mostly an argument that no such path exists.
                               ▼
                     Arc, as the only record
                               │
-                   ┌──────────┴──────────┐
-                   ▼                     ▼
-              Dashboard              Agent's own
-           (rebuilt from logs)     error handling
+              ┌────────────┼────────────┐
+              ▼            ▼            ▼
+         Dashboard      Service      Agent's own
+      (reads chain    (indexes,     error handling
+        directly)     notifies)
+                           │
+                           ▼
+                         Phone
+              (limits from chain, history
+               from service, alerts on push)
 ```
 
 Money moves **owner → payee**. It never enters Tollgate. There is no vault, no pool, no
@@ -52,7 +58,7 @@ deposit, and no withdraw function to write a bug in.
 
 ---
 
-## The four packages
+## The six packages
 
 ### `enforcement/` — the trust core
 
@@ -147,9 +153,50 @@ is ADR 0006, and the reasoning is not mainly about scale — it is that this pro
 operator-controlled record of what happened would undercut that in the one place a sceptic
 would look. Every row carries a link to ArcScan. You are invited to check us, not trust us.
 
-The projection logic lives in `lib/audit.ts` as pure functions, separate from `lib/activity.ts`
+The projection logic lives in `shared/src/audit.ts` as pure functions, separate from `lib/activity.ts`
 which owns the network. Both halves fail silently when wrong — a gap in the window grid drops
 payments out of history and nothing errors — so the pure half is unit-tested.
+
+### `service/` — the projection, and the only state that is ours
+
+ADR 0006 argued against a database and named the conditions that would end the argument.
+Mobile met them. Three things have no on-chain answer:
+
+1. **What has already been notified.** The chain records that a payment was refused. It cannot
+   record that we told anybody. Without a durable claim, every restart re-alerts the whole
+   history — and a channel that repeats itself gets muted, which means it misses the next real
+   thing.
+2. **Device tokens.** A push token exists nowhere else in the world.
+3. **Approval identity.** A phone opening a notification needs a stable id to resolve.
+
+Indexed history is a convenience on top; the dashboard reads chain directly and does not need
+this service to work.
+
+SQLite via `node:sqlite` rather than the Postgres the plan named — ADR 0009. Zero dependencies
+in the component closest to money, and a clone runs the whole stack with one command.
+
+**The property to preserve:** this API cannot authorise anything. No endpoint moves money,
+pauses an agent, or allowlists a payee, and a test asserts none ever will. If this service is
+fully compromised, the attacker gets a read replica and a notification channel. That is the
+whole blast radius, and it is worth not quietly giving away the first time an endpoint would
+be convenient.
+
+### `mobile/` — the control plane in a pocket
+
+Expo + React Native, Android first (ADR 0007). A kill switch you must be at your laptop to
+reach is not a kill switch.
+
+Same structural rule as everywhere else, applied hardest here: **policy state comes from the
+chain, history from the service.** The limits on screen are the ones the contract will enforce
+a second later, because they came from the contract — so a backend that is down, wrong or
+hostile cannot make an agent look bounded when it is not. Chain and service failures are
+reported separately, because "history is stale but the limits are live" is materially
+different from "we know nothing".
+
+The app holds no key. The kill switch prepares the transaction and hands it to a wallet the
+owner already trusts; the biometric prompt is not the authorisation, the wallet's signature is.
+Generating a key and keeping it in Keystore would be faster and would quietly recreate exactly
+what ADR 0008 removed.
 
 ---
 
@@ -181,12 +228,15 @@ could have.
 
 Things a reviewer will notice are missing, and why.
 
-**No database.** ADR 0006. The chain is the record; losing this server loses nothing. Costs:
-history has a 400,000-block horizon, and reads are expensive (mitigated to 0.44s first paint
-by memoising settled log windows and streaming the walk behind Suspense).
+**No database in the dashboard.** ADR 0006, still. The audit log is rebuilt from contract
+events on every request; losing that server loses nothing. The service has a database, and it
+is a cache in front of the chain under rules that are now tested rather than intended: every
+row keeps `tx_hash + log_index`, and a test deletes the store, re-indexes, and asserts the
+result is identical.
 
-**No backend service.** Nothing to reconcile because there is no mirror. It becomes necessary
-the moment notifications exist, which is the moment mobile exists (ADR 0007).
+**No mirror to reconcile.** The service stores a projection, never an authority. Any
+disagreement between it and the chain is resolved in the chain's favour, and the kill switch
+never routes through it.
 
 **No ERC-4337 / ERC-6900 module.** This was the intended architecture — enforcement in the
 account's validation hook governs *any* userOp, not just token transfers. Circle Modular
@@ -210,7 +260,9 @@ marketing.
    make the guarantee reproducible. This is now the largest open gap.
 2. **One policy per owner**, so "an operator's fleet" is currently one agent.
 3. **Nothing is hosted.** It runs on a laptop against testnet. Arc mainnet is not live.
-4. **No mobile app**, so the kill switch requires a laptop. ADR 0007.
+4. **Remote push is not delivering yet.** The service sends and the app registers, but it
+   needs an EAS project and Android FCM credentials. Local notifications work today. The app
+   says which state it is in rather than letting the owner assume they will be told.
 
 Closed since this document was first written: the owner's key no longer exists on the server —
 owner actions are signed in the browser by the owner's own wallet (ADR 0008).
@@ -220,12 +272,15 @@ owner actions are signed in the browser by the owner's own wallet (ADR 0008).
 ## Verifying any of this yourself
 
 ```sh
+pnpm balances          # can this demo run right now?
 pnpm contracts:test    # 47 tests: unit, fuzz, invariant
-pnpm test              # 99 TypeScript tests across shared, agent, dashboard
+pnpm test              # 210 TypeScript tests across five packages
 pnpm typecheck
 pnpm agent             # an agent working inside a budget it did not set
 pnpm agent:compromised # the same agent, hostile instructions, same key
+pnpm service           # indexer + API, http://localhost:8080
 pnpm dashboard         # http://localhost:3000
+pnpm mobile            # Expo; scan with Expo Go, or press w
 ```
 
 The contract is verified on ArcScan, so the source you read here is the source that runs.
@@ -234,7 +289,9 @@ The contract is verified on ArcScan, so the source you read here is the source t
 
 - `docs/threat-model.md` — what we assume an attacker can do
 - `docs/outcomes.md` — every outcome of a `spend`, enumerated
-- `docs/decisions/` — ADRs 0001–0007
+- `docs/decisions/` — ADRs 0001–0009
 - `docs/circle-feedback.md` — six findings on Circle's stack, including a reproducible
   gas-estimator defect
+- `docs/demo-script.md` — the runbook, and the caveats to have ready
+- `docs/funding.md` — faucet, which wallet drains, wallet setup
 - `ROADMAP.md` — everything not built, phased
