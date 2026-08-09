@@ -12,7 +12,8 @@
     "compromised": "node --env-file=../.env src/index.ts --compromised",
     "typecheck": "tsc --noEmit",
     "test": "node --test \"test/**/*.test.ts\"",
-    "selftest": "node --env-file=../.env src/selftest.ts"
+    "selftest": "node --env-file=../.env src/selftest.ts",
+    "balances": "node --env-file=../.env src/balances.ts"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.144",

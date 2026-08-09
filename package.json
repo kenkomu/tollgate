@@ -15,6 +15,7 @@
     "dashboard": "pnpm --filter @tollgate/dashboard dev",
     "agent": "pnpm --filter @tollgate/agent demo",
     "agent:compromised": "pnpm --filter @tollgate/agent compromised",
+    "balances": "pnpm --filter @tollgate/agent balances",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
