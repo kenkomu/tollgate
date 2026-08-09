@@ -15,7 +15,31 @@ import type {Activity} from "@tollgate/shared";
  * either succeeds and carries its own age, or it fails and says so.
  */
 
-const API_URL = (Constants.expoConfig?.extra?.apiUrl as string | undefined) ?? "http://localhost:8080";
+/**
+ * Where the service lives.
+ *
+ * Resolved from the Metro host rather than configured, because a hardcoded LAN address is
+ * wrong the moment DHCP hands out a different one — which it did, silently, and the app
+ * correctly reported that it could not reach anything while looking like it had no data.
+ *
+ * `hostUri` is whatever the phone used to reach the dev server, so by construction it is an
+ * address this device can route to. An explicit `extra.apiUrl` still wins, for a deployed
+ * backend that is not on the dev machine.
+ */
+const SERVICE_PORT = 8080;
+
+function resolveApiUrl(): string {
+  const configured = Constants.expoConfig?.extra?.apiUrl as string | undefined;
+  if (configured) return configured;
+
+  // e.g. "192.168.100.41:8081" — the host serving this bundle.
+  const host = Constants.expoConfig?.hostUri?.split(":")[0];
+  if (host) return `http://${host}:${SERVICE_PORT}`;
+
+  return `http://localhost:${SERVICE_PORT}`;
+}
+
+const API_URL = resolveApiUrl();
 
 /** Never let a dead network hang a screen. A phone on a bad connection needs an answer. */
 const TIMEOUT_MS = 8_000;

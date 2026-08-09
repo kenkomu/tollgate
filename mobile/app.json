@@ -26,7 +26,6 @@
     },
     "scheme": "tollgate",
     "extra": {
-      "apiUrl": "http://localhost:8080",
       "engine": "0x8168eb562496A966f339a4bD165B924EeDce9873",
       "owner": "0x8dEa7F60FB144Ea127F6806302E6a83913348B69"
     }

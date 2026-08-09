@@ -65,6 +65,19 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   /**
+   * Has the service ever answered?
+   *
+   * Distinct from `serviceDown`, and the distinction is the whole point. Between mount and the
+   * first response — up to eight seconds on a bad connection — `entries` is empty and nothing
+   * has failed yet, so a naive render says "nothing has happened". That is the app asserting a
+   * fact it has not checked, in the one place where the difference matters: an owner glancing
+   * at an empty audit log concludes their agent has been quiet.
+   *
+   * "Nothing happened" and "we have not looked yet" must never render the same.
+   */
+  const [everLoaded, setEverLoaded] = useState(false);
+
+  /**
    * Chain and service are loaded independently, and their failures are reported separately.
    *
    * Collapsing them would hide the case that matters most: the service being unreachable while
@@ -88,6 +101,7 @@ export default function App() {
         setEntries(a.entries);
         setApprovals(q);
         setServiceDown(false);
+        setEverLoaded(true);
       },
       () => setServiceDown(true),
     );
@@ -157,10 +171,13 @@ export default function App() {
               <ApprovalsScreen
                 approvals={approvals}
                 down={serviceDown}
+                loaded={everLoaded}
                 onResolved={() => void load()}
               />
             ) : null}
-            {tab === "activity" ? <ActivityScreen entries={entries} down={serviceDown} /> : null}
+            {tab === "activity" ? (
+              <ActivityScreen entries={entries} down={serviceDown} loaded={everLoaded} />
+            ) : null}
           </>
         )}
       </ScrollView>
@@ -250,14 +267,18 @@ function NowScreen({policy, onRefresh}: {policy: LivePolicy | null; onRefresh: (
 function ApprovalsScreen({
   approvals,
   down,
+  loaded,
   onResolved,
 }: {
   approvals: Approval[];
   down: boolean;
+  loaded: boolean;
   onResolved: () => void;
 }) {
   const t = useTheme();
   const [busy, setBusy] = useState<string | null>(null);
+
+  if (!loaded && !down) return <Checking what="what your agent is waiting on" />;
 
   if (down) {
     return (
@@ -326,7 +347,36 @@ function ApprovalsScreen({
   );
 }
 
-function ActivityScreen({entries, down}: {entries: Activity[]; down: boolean}) {
+/**
+ * "We have not looked yet", said out loud.
+ *
+ * The alternative is an empty list, and an empty audit log is a claim — that the agent has
+ * been quiet. Making the reader wait a moment is cheap; telling them nothing happened when
+ * we do not know is not.
+ */
+function Checking({what}: {what: string}) {
+  const t = useTheme();
+  return (
+    <Card>
+      <ActivityIndicator color={t.accent} />
+      <Text style={{color: t.muted, fontSize: 13, textAlign: "center", marginTop: 12}}>
+        Checking {what}…
+      </Text>
+    </Card>
+  );
+}
+
+function ActivityScreen({
+  entries,
+  down,
+  loaded,
+}: {
+  entries: Activity[];
+  down: boolean;
+  loaded: boolean;
+}) {
+  if (!loaded && !down) return <Checking what="the audit log" />;
+
   if (down) {
     return (
       <Card tone="stop">
@@ -343,7 +393,10 @@ function ActivityScreen({entries, down}: {entries: Activity[]; down: boolean}) {
     return (
       <Card>
         <Title>Nothing yet</Title>
-        <Note>No payments, refusals or policy changes have been recorded.</Note>
+        <Note>
+          The service is reachable and has no events for this owner. This is a checked answer,
+          not a missing one.
+        </Note>
       </Card>
     );
   }
