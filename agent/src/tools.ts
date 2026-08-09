@@ -326,7 +326,7 @@ export function createTollgateTools(client: TollgateClient, owner: Address, emit
       const service = findService(serviceId);
       if (!service) return text(`No such service: ${serviceId}`);
 
-      await fileRequest({
+      const where = await fileRequest({
         serviceId: service.id,
         serviceName: service.name,
         payee: service.payee,
@@ -338,7 +338,11 @@ export function createTollgateTools(client: TollgateClient, owner: Address, emit
       return text(
         `Approval requested from the owner for ${service.name} (${service.payee}).\n` +
           `Reason given: ${why}\n` +
-          `The owner must approve this in the Tollgate dashboard. You cannot proceed until they do.`,
+          (where === "service"
+            ? `It is now in the owner's queue on the dashboard and on their phone.`
+            : `The service was unreachable, so this was queued locally and will only be seen ` +
+              `on the dashboard. Mention that in your summary.`) +
+          `\nYou cannot proceed until the owner acts. Do not retry.`,
       );
     },
   );
