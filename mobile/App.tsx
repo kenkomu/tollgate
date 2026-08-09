@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useState} from "react";
+import {useCallback, useEffect, useRef, useState} from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -10,7 +10,14 @@ import {
   Text,
   View,
 } from "react-native";
-import {formatUsdc, formatUsdcApprox, type Activity} from "@tollgate/shared";
+import {explainToOwner, formatUsdc, formatUsdcApprox, type Activity} from "@tollgate/shared";
+import {
+  Notifications,
+  notifyLocally,
+  routeFor,
+  setUpNotifications,
+  type PushState,
+} from "./src/notifications.ts";
 import {
   ActivityRow,
   Button,
@@ -117,6 +124,55 @@ export default function App() {
     return () => clearInterval(timer);
   }, [load]);
 
+  /**
+   * Register for push, and remember what we have already told the owner about.
+   *
+   * The seen-set is seeded from the first load rather than starting empty, so opening the app
+   * does not fire a notification for every refusal in history. It is the same principle as the
+   * service's claim table, applied to the local path: a rebuild must be silent.
+   */
+  const [push, setPush] = useState<PushState | null>(null);
+  const seen = useRef<Set<string> | null>(null);
+
+  useEffect(() => {
+    setUpNotifications().then(setPush, () => setPush({kind: "denied"}));
+  }, []);
+
+  useEffect(() => {
+    if (entries.length === 0) return;
+
+    if (seen.current === null) {
+      seen.current = new Set(entries.map((e) => e.key));
+      return;
+    }
+
+    // Only refusals, and only ones that appeared since this app started watching. A payment
+    // that succeeded is not news; history the owner has already scrolled past is not either.
+    for (const entry of entries) {
+      if (seen.current.has(entry.key)) continue;
+      seen.current.add(entry.key);
+      if (entry.kind !== "refused") continue;
+
+      void notifyLocally({
+        title: "A payment was blocked",
+        body:
+          `${entry.amount === undefined ? "A payment" : formatUsdc(entry.amount)} was refused: ` +
+          `${entry.reason === undefined ? "policy violation" : explainToOwner(entry.reason).toLowerCase()}.`,
+        deepLink: `tollgate://activity/${entry.key}`,
+      });
+    }
+  }, [entries]);
+
+  /** A tapped notification opens the thing it is about, not the last screen you were on. */
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const url = response.notification.request.content.data?.url;
+      const route = typeof url === "string" ? routeFor(url) : null;
+      if (route) setTab(route.tab);
+    });
+    return () => sub.remove();
+  }, []);
+
   const fresh = health ? freshnessOf(health) : null;
 
   return (
@@ -166,7 +222,9 @@ export default function App() {
               />
             ) : null}
 
-            {tab === "now" ? <NowScreen policy={policy} onRefresh={() => void load()} /> : null}
+            {tab === "now" ? (
+              <NowScreen policy={policy} push={push} onRefresh={() => void load()} />
+            ) : null}
             {tab === "approvals" ? (
               <ApprovalsScreen
                 approvals={approvals}
@@ -201,7 +259,48 @@ export default function App() {
   );
 }
 
-function NowScreen({policy, onRefresh}: {policy: LivePolicy | null; onRefresh: () => void}) {
+/**
+ * Whether alerts will actually arrive.
+ *
+ * Said on screen rather than assumed, because the failure is silent by nature: an owner who
+ * believes they will be told when a payment is blocked, and will not be, stops checking. That
+ * is strictly worse than knowing up front that they have to look.
+ */
+function PushStatus({state}: {state: PushState | null}) {
+  const t = useTheme();
+  if (!state) return null;
+
+  if (state.kind === "registered") {
+    return <Freshness label="Alerts on — you will be told if a payment is blocked" stale={false} />;
+  }
+
+  if (state.kind === "denied") {
+    return (
+      <Freshness
+        label="Notifications are off. You will only see blocked payments by opening this app."
+        stale
+      />
+    );
+  }
+
+  return (
+    <Freshness
+      label="Alerts only while this app is open"
+      stale
+      detail={state.why}
+    />
+  );
+}
+
+function NowScreen({
+  policy,
+  push,
+  onRefresh,
+}: {
+  policy: LivePolicy | null;
+  push: PushState | null;
+  onRefresh: () => void;
+}) {
   const t = useTheme();
   if (!policy) return <ActivityIndicator style={{marginTop: 40}} />;
 
@@ -220,6 +319,7 @@ function NowScreen({policy, onRefresh}: {policy: LivePolicy | null; onRefresh: (
   return (
     <>
       <KillSwitch paused={policy.paused} onDone={onRefresh} />
+      <PushStatus state={push} />
 
       <Card>
         <Title>The leash</Title>

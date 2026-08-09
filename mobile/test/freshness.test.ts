@@ -75,3 +75,48 @@ describe("freshness", () => {
     assert.equal(fresh.current, true);
   });
 });
+
+/**
+ * Deep-link routing.
+ *
+ * The contract between the service (which writes these strings) and the app (which opens
+ * them). Duplicated from `src/notifications.ts` for the same reason as above — the module
+ * imports Expo natives that node:test cannot load.
+ */
+function routeFor(url: string): {tab: "activity" | "approvals"; id?: string} | null {
+  const match = /^tollgate:\/\/(activity|approvals)(?:\/(.+))?$/.exec(url);
+  if (!match) return null;
+  const tab = match[1] as "activity" | "approvals";
+  const id = match[2];
+  return id ? {tab, id} : {tab};
+}
+
+describe("deep links", () => {
+  it("opens the activity row a refusal is about", () => {
+    // The service emits exactly this shape. A notification that lands on the wrong screen
+    // makes the owner hunt for what it was warning them about.
+    assert.deepEqual(routeFor("tollgate://activity/0xabc:7"), {tab: "activity", id: "0xabc:7"});
+  });
+
+  it("opens a specific approval", () => {
+    assert.deepEqual(routeFor("tollgate://approvals/req-1"), {tab: "approvals", id: "req-1"});
+  });
+
+  it("opens a bare tab when there is no id", () => {
+    assert.deepEqual(routeFor("tollgate://approvals"), {tab: "approvals"});
+  });
+
+  it("keeps colons in an id, because event keys contain one", () => {
+    // `tx_hash:log_index` is the idempotency key from §3.5. Splitting on the wrong colon
+    // would silently truncate it.
+    const route = routeFor("tollgate://activity/0xdfcbb42c:7");
+    assert.equal(route?.id, "0xdfcbb42c:7");
+  });
+
+  it("refuses anything that is not one of ours", () => {
+    // A link is an instruction to navigate. One from outside must not be followed.
+    for (const url of ["https://evil.example/activity/1", "tollgate://policy", "nonsense", ""]) {
+      assert.equal(routeFor(url), null, `${url} should not route`);
+    }
+  });
+});

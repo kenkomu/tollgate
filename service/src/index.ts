@@ -2,8 +2,9 @@ import {createPublicClient, http, type Address} from "viem";
 import {ARC_POLLING_INTERVAL_MS, arcTestnet} from "@tollgate/shared";
 import {createApi} from "./api.ts";
 import {openDb} from "./db.ts";
+import {ExpoPushChannel} from "./expo-push.ts";
 import {Indexer} from "./indexer.ts";
-import {Notifier} from "./notifications.ts";
+import {Notifier, consoleChannel} from "./notifications.ts";
 import {Store} from "./store.ts";
 
 /**
@@ -30,7 +31,16 @@ if (!engine || !owner) {
 const db = openDb();
 const store = new Store(db);
 const indexer = new Indexer({engine, owner, store, rpcUrl: process.env.ARC_RPC_URL});
-const notifier = new Notifier(store);
+/**
+ * Real push when a device has registered, the log otherwise.
+ *
+ * Deliberately decided per run rather than by configuration: registering a device is the
+ * event that makes remote delivery possible, so it is the right thing to key on. The console
+ * channel is not a stub — it exercises the same delivery decision and the same once-only
+ * cursor, which is where the bugs live.
+ */
+const pushable = store.devicesFor(owner).length > 0;
+const notifier = new Notifier(store, pushable ? new ExpoPushChannel(store) : consoleChannel);
 
 const client = createPublicClient({
   chain: arcTestnet,
