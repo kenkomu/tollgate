@@ -18,6 +18,7 @@
     "agent:compromised": "pnpm --filter @tollgate/agent compromised",
     "mobile": "pnpm --filter @tollgate/mobile start",
     "balances": "pnpm --filter @tollgate/agent balances",
+    "record": "bash scripts/record.sh",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
