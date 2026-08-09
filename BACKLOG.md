@@ -167,7 +167,7 @@ to reach is not a kill switch.
 
 ## Testing
 
-47 Solidity tests and 97 TypeScript tests.
+47 Solidity tests and 99 TypeScript tests.
 
 - [x] **Unit tests for `shared/`** — 54. Includes a check that reads the Solidity `Reason`
       enum and fails if the TypeScript table drifts from it, and a 20,000-case differential

@@ -219,7 +219,7 @@ marketing.
 
 ```sh
 pnpm contracts:test    # 47 tests: unit, fuzz, invariant
-pnpm test              # 97 TypeScript tests across shared, agent, dashboard
+pnpm test              # 99 TypeScript tests across shared, agent, dashboard
 pnpm typecheck
 pnpm agent             # an agent working inside a budget it did not set
 pnpm agent:compromised # the same agent, hostile instructions, same key

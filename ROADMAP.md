@@ -49,7 +49,7 @@ remaining surface.
 
 Nothing is deployed anywhere but a local machine and Arc testnet.
 
-Totals: **47 Solidity tests, 97 TypeScript tests**, all gated by CI.
+Totals: **47 Solidity tests, 99 TypeScript tests**, all gated by CI.
 
 ---
 
@@ -95,7 +95,7 @@ Totals: **47 Solidity tests, 97 TypeScript tests**, all gated by CI.
 
 ### Left in Phase 0
 - [x] **CI.** GitHub Actions gates contracts, typecheck, lint, tests and a production build
-- [x] **97 TypeScript tests** across `shared/`, `agent/` and `dashboard/`
+- [x] **99 TypeScript tests** across `shared/`, `agent/` and `dashboard/`
 - [x] `docs/architecture.md`
 - [x] Removed the empty `service/` and `mobile/` scaffolds and their dead root scripts
 - [x] `README.md` counts corrected
