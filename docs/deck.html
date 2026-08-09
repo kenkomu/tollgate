@@ -1,0 +1,553 @@
+<meta charset="utf-8">
+<title>Tollgate — submission deck</title>
+
+<style>
+  /* ---------------------------------------------------------------------------
+     Tollgate's own tokens, carried into the deck so it reads as the same product.
+     Charcoal with a teal bias rather than neutral grey; brass accent for the
+     tollbooth; and #d66b62 strictly reserved for refusals and the kill switch —
+     the product's rule, not a decoration.
+     --------------------------------------------------------------------------- */
+  :root {
+    --ground: #f1f3f3;
+    --surface: #ffffff;
+    --surface-2: #e8ecec;
+    --hair: #d2d9d9;
+    --ink: #11181a;
+    --ink-2: #3d4a4d;
+    --muted: #5d6b6e;
+    --accent: #8f5f20;
+    --accent-soft: #f6ecd9;
+    --ok: #286b52;
+    --stop: #9c332c;
+    --stop-soft: #fbe6e3;
+
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Menlo, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0e1214;
+      --surface: #161c1f;
+      --surface-2: #1d2529;
+      --hair: #283236;
+      --ink: #e6eced;
+      --ink-2: #b3c0c3;
+      --muted: #7e8d91;
+      --accent: #c9913f;
+      --accent-soft: #2a2113;
+      --ok: #4fa985;
+      --stop: #d66b62;
+      --stop-soft: #2a1413;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0e1214;
+    --surface: #161c1f;
+    --surface-2: #1d2529;
+    --hair: #283236;
+    --ink: #e6eced;
+    --ink-2: #b3c0c3;
+    --muted: #7e8d91;
+    --accent: #c9913f;
+    --accent-soft: #2a2113;
+    --ok: #4fa985;
+    --stop: #d66b62;
+    --stop-soft: #2a1413;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Evidence is set in mono. Prose is not. That division is the whole type idea. */
+  code, .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  .deck { scroll-snap-type: y mandatory; height: 100vh; overflow-y: auto; }
+
+  .slide {
+    scroll-snap-align: start;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: clamp(32px, 6vw, 96px);
+    max-width: 1100px;
+    margin: 0 auto;
+    border-bottom: 1px solid var(--hair);
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .eyebrow::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--hair);
+  }
+
+  h1 {
+    font-size: clamp(40px, 7vw, 76px);
+    line-height: 1.02;
+    letter-spacing: -0.035em;
+    margin: 0 0 22px;
+    text-wrap: balance;
+    font-weight: 640;
+  }
+
+  h2 {
+    font-size: clamp(28px, 4.2vw, 46px);
+    line-height: 1.1;
+    letter-spacing: -0.025em;
+    margin: 0 0 20px;
+    text-wrap: balance;
+    font-weight: 620;
+  }
+
+  h3 {
+    font-size: 15px;
+    letter-spacing: 0.02em;
+    margin: 0 0 8px;
+    font-weight: 620;
+  }
+
+  p { margin: 0 0 16px; max-width: 62ch; color: var(--ink-2); }
+  .lede { font-size: clamp(17px, 2vw, 21px); color: var(--ink-2); max-width: 56ch; }
+  strong { color: var(--ink); font-weight: 620; }
+
+  .claim {
+    border-left: 3px solid var(--accent);
+    padding: 4px 0 4px 22px;
+    margin: 0 0 26px;
+    font-size: clamp(19px, 2.6vw, 27px);
+    line-height: 1.35;
+    letter-spacing: -0.015em;
+    color: var(--ink);
+    max-width: 30ch;
+    text-wrap: balance;
+  }
+
+  .grid { display: grid; gap: 16px; margin-top: 8px; }
+  .g2 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .g3 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--hair);
+    border-radius: 10px;
+    padding: 18px 20px;
+  }
+  .card p { margin: 0; font-size: 14px; }
+  .card.stopped { border-color: var(--stop); background: var(--stop-soft); }
+  .card.stopped h3 { color: var(--stop); }
+
+  .stat { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .stat .n {
+    display: block;
+    font-size: clamp(26px, 3.4vw, 38px);
+    letter-spacing: -0.03em;
+    color: var(--ink);
+    line-height: 1.1;
+  }
+  .stat .l {
+    display: block;
+    font-family: var(--sans);
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  /* The one slide that breaks pattern. Everything else stays quiet so this lands. */
+  .zero {
+    font-family: var(--mono);
+    font-size: clamp(64px, 13vw, 150px);
+    line-height: 0.92;
+    letter-spacing: -0.05em;
+    color: var(--stop);
+    margin: 6px 0 14px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .path {
+    font-family: var(--mono);
+    font-size: clamp(10px, 1.35vw, 14px);
+    line-height: 1.5;
+    background: var(--surface);
+    border: 1px solid var(--hair);
+    border-radius: 10px;
+    padding: 20px;
+    overflow-x: auto;
+    color: var(--ink-2);
+    margin: 4px 0 18px;
+    white-space: pre;
+  }
+
+  ul { margin: 0 0 16px; padding-left: 0; list-style: none; max-width: 62ch; }
+  li {
+    padding: 9px 0 9px 22px;
+    border-bottom: 1px solid var(--hair);
+    position: relative;
+    color: var(--ink-2);
+    font-size: 15px;
+  }
+  li::before {
+    content: "";
+    position: absolute;
+    left: 2px; top: 18px;
+    width: 7px; height: 1px;
+    background: var(--accent);
+  }
+  li:last-child { border-bottom: none; }
+
+  .rows { display: grid; gap: 0; margin: 4px 0 18px; }
+  .row {
+    display: grid;
+    grid-template-columns: minmax(140px, 1fr) auto;
+    gap: 16px;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--hair);
+    align-items: baseline;
+  }
+  .row:last-child { border-bottom: none; }
+  .row .k { color: var(--ink); font-size: 15px; font-weight: 560; }
+  .row .k small { display: block; color: var(--muted); font-weight: 400; font-size: 13px; margin-top: 2px; }
+  .row .v { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; }
+
+  .chip {
+    display: inline-block;
+    /* Direct children of .slide are flex items and stretch by default; a chip that spans the
+       viewport reads as a banner rather than a label. */
+    align-self: flex-start;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    letter-spacing: 0.05em;
+    padding: 3px 9px;
+    border-radius: 20px;
+    background: var(--surface-2);
+    color: var(--muted);
+    border: 1px solid var(--hair);
+  }
+  .chip.stop { background: var(--stop-soft); color: var(--stop); border-color: var(--stop); }
+
+  a { color: var(--accent); text-underline-offset: 3px; }
+  a:focus-visible, .deck:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  .foot {
+    margin-top: 26px;
+    padding-top: 16px;
+    border-top: 1px solid var(--hair);
+    font-size: 13px;
+    color: var(--muted);
+    max-width: 62ch;
+  }
+
+  /* Brass progress rail — the only chrome. */
+  .rail {
+    position: fixed; left: 0; top: 0;
+    height: 2px; width: 0%;
+    background: var(--accent);
+    z-index: 10;
+    transition: width 0.18s linear;
+  }
+  .count {
+    position: fixed; right: 18px; bottom: 16px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px solid var(--hair);
+    border-radius: 20px;
+    padding: 4px 12px;
+    z-index: 10;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rail { transition: none; }
+    .deck { scroll-behavior: auto; }
+  }
+
+  @media print {
+    .rail, .count { display: none; }
+    .slide { min-height: auto; page-break-after: always; border: none; }
+  }
+</style>
+
+<div class="rail" id="rail"></div>
+<div class="count" id="count">1 / 9</div>
+
+<main class="deck" id="deck" tabindex="0">
+
+  <!-- 1 ---------------------------------------------------------------->
+  <section class="slide" id="s1">
+    <div class="eyebrow">Build on Arc · Encode Programmable Money</div>
+    <h1>Agents can spend your money. Tollgate decides how much.</h1>
+    <p class="lede">
+      An on-chain enforcement layer for autonomous agent spending, built on Arc.
+      Non-custodial, verifiable, and binding on a key that has already been stolen.
+    </p>
+    <div class="foot">
+      <code>PolicyEngine</code> · verified on ArcScan ·
+      <code>0x8168eb562496A966f339a4bD165B924EeDce9873</code>
+    </div>
+  </section>
+
+  <!-- 2 ---------------------------------------------------------------->
+  <section class="slide" id="s2">
+    <div class="eyebrow">01 — The problem</div>
+    <h2>Every guardrail people build lives inside the agent.</h2>
+    <p>
+      In the prompt. In the tool definitions. In the app that calls the model. All of it shares
+      one flaw: it assumes the agent is the thing enforcing the rule.
+    </p>
+    <div class="grid g3">
+      <div class="card">
+        <h3>Prompt injection</h3>
+        <p>Instructions arrive in the data the agent was asked to read.</p>
+      </div>
+      <div class="card">
+        <h3>A leaked key</h3>
+        <p>The attacker skips the agent entirely and signs directly.</p>
+      </div>
+      <div class="card">
+        <h3>A retry loop</h3>
+        <p>No malice required. A bug spends the budget just as fast.</p>
+      </div>
+    </div>
+    <p style="margin-top:20px">
+      Each one routes around a check that lives in the same process as the thing being checked.
+    </p>
+  </section>
+
+  <!-- 3 ---------------------------------------------------------------->
+  <section class="slide" id="s3">
+    <div class="eyebrow">02 — The claim</div>
+    <div class="claim">
+      An agent whose key has been <strong>fully compromised</strong> still cannot spend outside
+      its policy.
+    </div>
+    <p>
+      That sentence is falsifiable, which is the point of stating it that way. It fails if there
+      is <em>any</em> path from the agent's signing key to a USDC transfer that does not pass
+      through policy evaluation.
+    </p>
+    <p>
+      So the architecture is mostly an argument that no such path exists — and the demo is an
+      attempt to find one, on camera, with the real key.
+    </p>
+  </section>
+
+  <!-- 4 ---------------------------------------------------------------->
+  <section class="slide" id="s4">
+    <div class="eyebrow">03 — How it works</div>
+    <h2>The constraint sits where the agent cannot reach it.</h2>
+    <div class="path">   Owner (own wallet)                    Agent (session key)
+        │                                     │
+        │ approve(PolicyEngine, budget)       │ trySpend(payee, amount)
+        ▼                                     ▼
+   ┌──────────────────────────────────────────────────┐
+   │  PolicyEngine                                    │
+   │    budget · per-payment · token bucket           │
+   │    payee allowlist · expiry · pause              │
+   └──────────┬─────────────────────┬─────────────────┘
+              │ OK                  │ anything else
+              ▼                     ▼
+   transferFrom(owner → payee)   emit Refused(reason)
+   emit Spent(...)               nothing moves</div>
+    <p>
+      Money moves <strong>owner to payee</strong>. It never enters Tollgate — there is no vault,
+      no pool, and no withdraw function to write a bug in.
+    </p>
+    <p>
+      The owner grants an ERC-20 allowance sized to the budget, so the allowance is a
+      <strong>second ceiling that holds even if our contract is wrong</strong>. Revocation is
+      <code>approve(0)</code>: the owner leaves without our permission or our servers being up.
+    </p>
+  </section>
+
+  <!-- 5 ---------------------------------------------------------------->
+  <section class="slide" id="s5">
+    <div class="eyebrow">04 — The proof</div>
+    <span class="chip stop">PAYEE_NOT_ALLOWED · reason 5</span>
+    <div class="zero">$0.00</div>
+    <h2 style="margin-bottom:14px">moved, with a fully working key.</h2>
+    <p>
+      We hand an attacker the agent's actual private key and instruct it to drain the wallet to
+      a burn address, routing around anything that refuses. It tries. The contract refuses it.
+    </p>
+    <div class="rows">
+      <div class="row">
+        <span class="k">Attempted<small>to <code>0x0000…dead</code></small></span>
+        <span class="v">$19.00</span>
+      </div>
+      <div class="row">
+        <span class="k">Moved</span>
+        <span class="v" style="color:var(--stop)">$0.00</span>
+      </div>
+      <div class="row">
+        <span class="k">Recorded on chain<small>refusals are transactions, not silence</small></span>
+        <span class="v">0xdfcbb42c…67029c</span>
+      </div>
+    </div>
+    <p class="foot">
+      Nothing in the agent stopped it — the agent cooperated with the attacker completely. A
+      refusal that leaves no trace is only a claim, so <code>trySpend</code> emits
+      <code>Refused</code> and the attempt is permanent, public, and checkable without trusting us.
+    </p>
+  </section>
+
+  <!-- 6 ---------------------------------------------------------------->
+  <section class="slide" id="s6">
+    <div class="eyebrow">05 — What is built</div>
+    <h2>Six packages, and the tests that hold them.</h2>
+    <div class="rows">
+      <div class="row">
+        <span class="k">enforcement<small>Solidity · immutable · no admin key · verified</small></span>
+        <span class="v">47 tests</span>
+      </div>
+      <div class="row">
+        <span class="k">shared<small>ABI, reason codes, the 6-vs-18 decimal rule</small></span>
+        <span class="v">83 tests</span>
+      </div>
+      <div class="row">
+        <span class="k">agent<small>Claude Agent SDK · deliberately unrestricted tools</small></span>
+        <span class="v">23 tests</span>
+      </div>
+      <div class="row">
+        <span class="k">service<small>indexer, notification cursor, read API</small></span>
+        <span class="v">86 tests</span>
+      </div>
+      <div class="row">
+        <span class="k">dashboard<small>Next.js · owner signs in their own browser</small></span>
+        <span class="v">6 tests</span>
+      </div>
+      <div class="row">
+        <span class="k">mobile<small>Expo · kill switch in a pocket</small></span>
+        <span class="v">12 tests</span>
+      </div>
+    </div>
+    <div class="grid g3">
+      <div class="card stat"><span class="n">257</span><span class="l">tests, gated by CI</span></div>
+      <div class="card stat"><span class="n">12</span><span class="l">reason codes, one evaluator</span></div>
+      <div class="card stat"><span class="n">0</span><span class="l">keys held by our servers</span></div>
+    </div>
+  </section>
+
+  <!-- 7 ---------------------------------------------------------------->
+  <section class="slide" id="s7">
+    <div class="eyebrow">06 — Feedback on Circle's stack</div>
+    <h2>Six findings, from building rather than reading.</h2>
+    <ul>
+      <li><strong>Modular Wallets session keys are unreleased</strong>, so the ERC-6900 module we intended to build has no deployment path. We designed the allowance model instead — and it turned out to work on any EOA, on any ERC-20 chain, with no account abstraction at all.</li>
+      <li><strong>Paymaster does not support Arc</strong>, and on Arc it is not needed — USDC is already the gas token. The product that fills the gap is Gas Station, which is a different thing with a similar name.</li>
+      <li><strong>The Agent Stack starter kit is Base-mainnet-only</strong> by its own <code>.env.example</code>, on a hackathon whose premise is Arc.</li>
+      <li><strong>Gateway nanopayments settle off-chain</strong>, so on-chain policy cannot intercept them. Our enforcement point is the top-up. Circle's own controls are genuinely stronger here, and we would rather say so.</li>
+      <li><strong>The "Arc rejects PUSH0, compile to paris" advice is obsolete.</strong> We disassembled Circle's own live ERC-8183 proxy and found ten PUSH0 opcodes in its executed fallback.</li>
+      <li><strong><code>eth_estimateGas</code> leaves under 1% of headroom</strong> on a USDC transfer — 97,846 returned against 96,931 actually consumed. Payments fail intermittently with no readable reason. We buffer 30%.</li>
+    </ul>
+  </section>
+
+  <!-- 8 ---------------------------------------------------------------->
+  <section class="slide" id="s8">
+    <div class="eyebrow">07 — What we would push back on</div>
+    <h2>Where the claim is still stronger than the evidence.</h2>
+    <p>
+      Stated here rather than left for someone to find, because a submission that only lists
+      strengths is marketing.
+    </p>
+    <div class="grid g2">
+      <div class="card">
+        <h3>The model chose not to attack</h3>
+        <p>
+          It also declined on its own reasoning. That is not the evidence — the two contract
+          refusals are. A deterministic attacker script would make the guarantee reproducible
+          rather than anecdotal.
+        </p>
+      </div>
+      <div class="card">
+        <h3>One policy per owner</h3>
+        <p>
+          A real operator runs a fleet. Today "an operator's agents" is one agent, and multiple
+          policies are the next contract change.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Nothing is hosted</h3>
+        <p>
+          It runs on a laptop against testnet. Arc mainnet is not live, and we do not imply
+          otherwise anywhere.
+        </p>
+      </div>
+      <div class="card">
+        <h3>No external audit</h3>
+        <p>
+          Reviewed by us and a fuzzer. Invariant and differential suites pass; a prover and an
+          auditor would settle it. Hard gate before mainnet.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9 ---------------------------------------------------------------->
+  <section class="slide" id="s9">
+    <div class="eyebrow">08 — Why this matters</div>
+    <h2>The leash has to survive the credential.</h2>
+    <p>
+      Circle already ships spend controls for agent wallets, and they are good. They are enforced
+      off-chain, behind Circle's API, and they are in the path when the caller goes through
+      Circle.
+    </p>
+    <p>
+      Tollgate's enforcement is in the contract: <strong>verifiable by anyone, portable across
+      providers, and binding on a raw key with nobody in the loop.</strong> The two are
+      complementary. Ours is the one that survives the credential being stolen.
+    </p>
+    <div class="foot">
+      Everything here is testnet. Everything shown is on a public chain you can check.<br>
+      <code>pnpm balances · pnpm agent:compromised · pnpm dashboard</code>
+    </div>
+  </section>
+
+</main>
+
+<script>
+  // Progress rail and slide counter. The deck is scroll-snapped, so arrow keys and
+  // PageUp/PageDown work natively — this only reports position.
+  const deck = document.getElementById("deck");
+  const rail = document.getElementById("rail");
+  const count = document.getElementById("count");
+  const slides = [...document.querySelectorAll(".slide")];
+
+  function report() {
+    const max = deck.scrollHeight - deck.clientHeight;
+    const progress = max > 0 ? deck.scrollTop / max : 0;
+    rail.style.width = (progress * 100).toFixed(2) + "%";
+
+    const current = slides.findIndex((s) => s.offsetTop + s.offsetHeight / 2 > deck.scrollTop);
+    const index = current === -1 ? slides.length : current + 1;
+    count.textContent = index + " / " + slides.length;
+  }
+
+  deck.addEventListener("scroll", report, {passive: true});
+  window.addEventListener("resize", report);
+  report();
+  deck.focus();
+</script>
