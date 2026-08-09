@@ -1,5 +1,6 @@
 import type {Metadata} from "next";
 import {Sidebar} from "../components/Sidebar.tsx";
+import {WalletBar} from "../components/WalletBar.tsx";
 import "./globals.css";
 
 // No webfonts. The design system uses a system stack deliberately — a font that has to
@@ -17,7 +18,10 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
       <body>
         <div className="shell">
           <Sidebar />
-          <div className="content">{children}</div>
+          <div className="content">
+            <WalletBar />
+            {children}
+          </div>
         </div>
       </body>
     </html>

@@ -9,7 +9,7 @@ Hackathon-only items are in the submission checklist at the bottom.
 
 **Status:** `[x]` done · `[~]` partial · `[ ]` not started · `[!]` blocked on someone else
 
-Last reconciled against the source tree at commit `ee53870`. Where this file and the code
+Last reconciled against the source tree on 2026-08-09. Where this file and the code
 disagree, the code is right — say so and fix this file.
 
 ---
@@ -42,9 +42,9 @@ remaining surface.
 | Package | State | Tests |
 |---|---|---|
 | `enforcement/` | Deployed + verified at `0x8168eb562496A966f339a4bD165B924EeDce9873` (block 55,621,174) | 47 — 37 unit, 7 invariant, 3 coverage |
-| `shared/` | Chain config, reason codes, amounts, ABI. Every TS package imports it | 0 |
-| `agent/` | 7 tools, 5 failure classes, nonce queue, velocity back-off, unstick, gas health | 0 unit; `selftest.ts` is live-chain only |
-| `dashboard/` | 4 pages, all 8 owner writes wired, refusals visible, no database | 0 |
+| `shared/` | Chain config, reason codes, amounts, ABI. Every TS package imports it | 54 |
+| `agent/` | 7 tools, 5 failure classes, nonce queue, velocity back-off, unstick, gas health | 23 + `selftest.ts` (live chain) |
+| `dashboard/` | 4 pages, owner signs in-browser, refusals visible, no database | 20 |
 | `service/`, `mobile/` | **Do not exist.** Empty scaffolds removed rather than left as decoration | — |
 
 Nothing is deployed anywhere but a local machine and Arc testnet.
@@ -86,7 +86,7 @@ Totals: **47 Solidity tests, 97 TypeScript tests**, all gated by CI.
 
 ### Discipline
 - [x] Threat model written (§3.1)
-- [x] ADRs 0001–0006
+- [x] ADRs 0001–0008
 - [x] `docs/outcomes.md`, `docs/tech-stack.md`, `BACKLOG.md`
 - [x] `docs/circle-feedback.md` — six findings on Circle's stack
 - [x] Public repository
@@ -136,9 +136,8 @@ These come first. They are what a serious reviewer attacks.
 - [x] **Refusal visibility.** `trySpend` returns a reason and emits `Refused`; the dashboard
       shows what was stopped, with a transaction link for each
 - [x] `setPayee` rejects `address(this)`
-- [ ] **Owner key out of `.env`.** Passkey/WebAuthn signing in the browser. Non-custodial
-      in the contract, custodial in the app, is a contradiction that sinks a security
-      pitch (§3.3). **The largest remaining honesty gap**
+- [x] **Owner key out of `.env`.** Owner actions are signed in the browser by the owner's
+      own wallet; the server holds nothing that can move money or change a policy. ADR 0008
 - [ ] **Deterministic attacker script.** The compromised demo depends on a model *choosing*
       to attack; the evidence is the contract refusals, not its commentary. A scripted
       adversary trying every evasion in a fixed order makes the guarantee reproducible
@@ -407,7 +406,8 @@ are now closed.
    the dashboard renders refusals with a reason and a transaction link.
 2. **The attack demo depends on a model's choices.** Two contract refusals are evidence;
    the model's reasoning is not. Open.
-3. **The owner key lives in a `.env` file.** Open, and now the largest one.
+3. ~~**The owner key lives in a `.env` file.**~~ **Closed.** The owner signs in their own
+   browser; the server holds no key. ADR 0008.
 4. **The invariant suite once passed vacuously** — zero successful spends across 32,768
    calls, all eight invariants green. Fixed and locked in with a deterministic coverage
    test, but a standing reminder that green is not proof.

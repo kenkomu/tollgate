@@ -1,6 +1,7 @@
 "use client";
 
 import {useState, useTransition} from "react";
+import {useRouter} from "next/navigation";
 import type {Address} from "viem";
 import type {ApprovalRequest} from "../lib/approvals.ts";
 import {approvePayee, declineRequest} from "../lib/owner.ts";
@@ -18,6 +19,7 @@ import {ExternalIcon, HandIcon} from "./Icon.tsx";
  * refused — nothing in this queue grants anything by itself.
  */
 export function ApprovalQueue({requests}: {requests: ApprovalRequest[]}) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [busy, setBusy] = useState<string | null>(null);
   const [hash, setHash] = useState<string | null>(null);
@@ -29,8 +31,12 @@ export function ApprovalQueue({requests}: {requests: ApprovalRequest[]}) {
     setBusy(payee);
     startTransition(async () => {
       const result = await approvePayee(payee);
-      if (result.ok) setHash(result.hash ?? null);
-      else setError(result.error ?? "Failed");
+      if (result.ok) {
+        setHash(result.hash ?? null);
+        router.refresh();
+      } else {
+        setError(result.error ?? "Failed");
+      }
       setBusy(null);
     });
   }
@@ -39,6 +45,7 @@ export function ApprovalQueue({requests}: {requests: ApprovalRequest[]}) {
     setBusy(payee);
     startTransition(async () => {
       await declineRequest(payee);
+      router.refresh();
       setBusy(null);
     });
   }

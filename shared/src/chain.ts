@@ -118,12 +118,18 @@ export const SUGGESTED_PRIORITY_FEE_WEI = 1_000_000_000n; // 1 Gwei tip
 export const MAX_LOG_BLOCK_RANGE = 20_000n;
 
 /**
- * How far back a live chain read will reach before we stop chunking.
+ * How far back a chunked read will reach when a caller wants a bounded walk.
  *
- * ~400,000 blocks is a couple of days on Arc, which is about 20 requests. Beyond that,
- * reading history straight from the RPC on every page load stops being reasonable and
- * the answer is the indexer in plan §2.3 — a cache in front of the chain, never an
- * authority over it. Until that exists, the dashboard shows recent history and says so.
+ * ~400,000 blocks is about two and a half days on Arc. This was the dashboard's default
+ * until it caused a silent data loss: once the chain advanced past the horizon, the windows
+ * holding the earliest payments were skipped and the audit log shortened from the front with
+ * nothing to indicate it had. An evidence log that quietly discards the oldest evidence is
+ * worse than a slow one.
+ *
+ * The dashboard now walks from the deployment block with no horizon, which the persistent
+ * settled-window cache makes affordable — each window is read once, ever. This constant
+ * remains for callers that genuinely want "recent history only" and are prepared to say so
+ * in the UI.
  */
 export const MAX_HISTORY_BLOCKS = 400_000n;
 

@@ -3,7 +3,7 @@ import {availableNow, formatUsdc, formatUsdcApprox, USDC_ADDRESS} from "@tollgat
 import {ExternalIcon} from "../../components/Icon.tsx";
 import {KillSwitch} from "../../components/KillSwitch.tsx";
 import {Meter} from "../../components/Meter.tsx";
-import {NoPolicy, NotConfigured, PageHead} from "../../components/PageHead.tsx";
+import {ChainUnreachable, NoPolicy, NotConfigured, PageHead} from "../../components/PageHead.tsx";
 import {
   AgentEditor,
   AllowanceEditor,
@@ -12,7 +12,7 @@ import {
   RevokeEditor,
   VelocityEditor,
 } from "../../components/PolicyEditors.tsx";
-import {owner, policyFor} from "../../lib/data.ts";
+import {owner, tryPolicy} from "../../lib/data.ts";
 import {ENGINE, addressUrl, isConfigured, publicClient, shortAddress} from "../../lib/chain.ts";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +33,17 @@ export default async function PolicyPage() {
     );
   }
 
-  const policy = await policyFor(owner);
+  const read = await tryPolicy(owner);
+  if (!read.ok) {
+    return (
+      <>
+        <PageHead title="Policy" lede="The rules the contract enforces." />
+        <ChainUnreachable detail={read.error} />
+      </>
+    );
+  }
+
+  const policy = read.value;
   if (!policy.exists) {
     return (
       <>

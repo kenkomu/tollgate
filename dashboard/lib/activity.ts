@@ -2,6 +2,7 @@ import {POLICY_ENGINE_DEPLOY_BLOCK} from "@tollgate/shared";
 import {parseEventLogs, type Address} from "viem";
 import {ENGINE, abi, publicClient} from "./chain.ts";
 import {planWindows, projectAuditLog, type AuditLog, type EngineLog} from "./audit.ts";
+import {loadWindows, saveWindows} from "./logcache.ts";
 
 export {describe, reasonText} from "./audit.ts";
 export type {Activity, ActivityKind, AuditLog} from "./audit.ts";
@@ -42,6 +43,23 @@ type DecodedLogs = Awaited<ReturnType<typeof readWindow>>;
 const settledWindows = new Map<string, DecodedLogs>();
 const blockTimes = new Map<bigint, number>();
 
+/**
+ * Rehydrated from disk once per process, so a restart does not re-walk all of history.
+ *
+ * Awaited rather than fired and forgotten: a request that starts before the load finishes
+ * would miss every cached window and do the full walk anyway, which is precisely the case
+ * this exists to prevent — the first load after starting the server.
+ */
+let hydrated: Promise<void> | null = null;
+let dirty = false;
+
+function hydrate(): Promise<void> {
+  hydrated ??= loadWindows<DecodedLogs>().then((stored) => {
+    for (const [key, logs] of stored) if (!settledWindows.has(key)) settledWindows.set(key, logs);
+  });
+  return hydrated;
+}
+
 /** How far behind the tip a block must be before we treat its logs as final. */
 const CONFIRMATIONS = 64n;
 
@@ -63,8 +81,29 @@ async function withBackoff<T>(work: () => Promise<T>, attempts = 4): Promise<T> 
 
 /** Walks the contract's history in windows, with bounded concurrency. */
 async function readAllLogs(head: bigint) {
+  await hydrate();
+
   const deployed = BigInt(process.env.POLICY_ENGINE_DEPLOY_BLOCK ?? POLICY_ENGINE_DEPLOY_BLOCK);
-  const windows = planWindows(deployed, head);
+
+  /**
+   * The whole history, with no horizon.
+   *
+   * `MAX_HISTORY_BLOCKS` existed because re-walking history on every page load was the cost
+   * that made a horizon necessary. The persistent settled-window cache removes that: each
+   * window is read once for the lifetime of the deployment, so walking from the deployment
+   * block is a one-time linear cost rather than a per-request one.
+   *
+   * Removing it also fixes a silent data loss. Arc produces roughly two blocks a second, so
+   * 400,000 blocks is about two and a half days — and this deployment had already passed it.
+   * The three windows holding the first payments ever made were being skipped, and the audit
+   * log was quietly shortening from the front with nothing to indicate it. For a log whose
+   * entire purpose is evidence, dropping the oldest evidence without saying so is the worst
+   * available behaviour.
+   *
+   * This grows with chain age. When it stops being reasonable, the answer is the indexer in
+   * plan §2.3 — not a horizon that discards history.
+   */
+  const windows = planWindows(deployed, head, head);
 
   const CONCURRENCY = 3;
   const out: DecodedLogs = [];
@@ -79,12 +118,22 @@ async function readAllLogs(head: bigint) {
           if (hit) return hit;
         }
         const logs = await withBackoff(() => readWindow(from, to));
-        if (settled) settledWindows.set(key, logs);
+        if (settled) {
+          settledWindows.set(key, logs);
+          dirty = true;
+        }
         return logs;
       }),
     );
     for (const logs of results) out.push(...logs);
   }
+
+  // Written after the walk rather than per window, so one page load costs one write.
+  if (dirty) {
+    dirty = false;
+    void saveWindows(settledWindows);
+  }
+
   return out;
 }
 

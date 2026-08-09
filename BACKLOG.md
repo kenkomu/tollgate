@@ -6,7 +6,7 @@ work that only makes sense months out.
 Ordered within each section by how much it matters, not by effort.
 
 `ROADMAP.md` is the phased view of the same scope, with gates. This file is the flat
-inventory. Both were reconciled against the source tree at commit `ee53870`.
+inventory. Both were reconciled against the source tree on 2026-08-09.
 
 ---
 
@@ -81,10 +81,9 @@ inventory. Both were reconciled against the source tree at commit `ee53870`.
 
 ## Dashboard
 
-- [ ] **Owner signs in the browser.** The biggest gap. Owner actions are currently signed
-      server-side from `DEPLOYER_PRIVATE_KEY` in `.env` — an MVP shortcut that sits badly
-      against the non-custodial thesis. Should be a passkey or WalletConnect signature.
-      Documented in `lib/owner.ts` and the threat model.
+- [x] **Owner signs in the browser.** Owner actions are signed by an injected EIP-1193
+      wallet; the server holds no key and can authorise nothing. ADR 0008. A passkey layer
+      on top remains desirable for onboarding, but the custody gap is closed.
 - [x] **Policy editing.** All eight owner writes — caps, velocity, expiry, agent, payees,
       allowance, revoke, and policy creation — are now editable from the UI.
 - [x] **Refusal visibility.** `trySpend` emits `Refused`, and the activity log renders
@@ -97,7 +96,9 @@ inventory. Both were reconciled against the source tree at commit `ee53870`.
       durable cursor, which requires a database. ADR 0006.
 - [ ] **Multi-owner / team accounts**, roles, and multi-party approval.
 - [ ] **CSV export and accounting integration.**
-- [ ] **History beyond the 400k-block horizon.** Needs the indexer.
+- [x] **History beyond the 400k-block horizon.** The horizon was silently dropping the
+      oldest payments once Arc advanced past it. Removed; the persistent settled-window
+      cache makes a full walk from the deployment block a one-time cost.
 - [ ] **Real-time updates** over WebSocket rather than an interval refresh.
 - [ ] **Accessibility beyond the contrast pass** — keyboard traversal, screen reader
       labelling, focus order through the policy editors.
@@ -121,12 +122,13 @@ None of this exists.
 
 ## Mobile — Android and iOS
 
-`mobile/` is an empty directory. Nothing exists. The case for it is specific: a kill switch
-you must be at your laptop to reach is not a kill switch.
+Nothing exists yet. The case for it is specific: a kill switch you must be at your laptop
+to reach is not a kill switch.
 
-- [ ] **Decide Expo/React Native vs native Kotlin**, as an ADR. React Native shares
-      `shared/` and the reason codes directly; native gives cleaner Credential Manager and
-      biometric integration.
+- [x] **Expo/React Native vs native Kotlin** — decided in ADR 0007: Expo, Android first, so
+      the reason codes and token-bucket maths come from `shared/` rather than being
+      reimplemented where nothing guards the drift.
+- [ ] **Scaffold the app** and wire it into the workspace.
 - [ ] **Passkey onboarding via Android Credential Manager.** Circle's modular-wallets SDK
       is web-first, so this needs a WebAuthn bridge or a native path — the same blocked
       dependency as the web passkey work. ADR 0001.

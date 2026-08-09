@@ -1,6 +1,7 @@
 "use client";
 
 import {useState, useTransition, type ReactNode} from "react";
+import {useRouter} from "next/navigation";
 import type {WriteResult} from "../lib/owner.ts";
 import {txUrl} from "../lib/chain.ts";
 import {ExternalIcon} from "./Icon.tsx";
@@ -37,6 +38,7 @@ export function EditCard({
   /** Required phrase for irreversible actions. */
   confirm?: string;
 }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<WriteResult | null>(null);
   const [typed, setTyped] = useState("");
@@ -46,7 +48,13 @@ export function EditCard({
   function submit(event: React.FormEvent) {
     event.preventDefault();
     setResult(null);
-    startTransition(async () => setResult(await action()));
+    startTransition(async () => {
+      const outcome = await action();
+      setResult(outcome);
+      // The write happened in this browser, so the server has no idea anything changed.
+      // `revalidatePath` did this when these were server actions; now the client asks.
+      if (outcome.ok) router.refresh();
+    });
   }
 
   return (

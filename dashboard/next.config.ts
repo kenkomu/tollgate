@@ -13,6 +13,17 @@ const nextConfig: NextConfig = {
   // No floating dev badge. This page gets demoed and screenshotted from the dev server,
   // and a framework logo in the corner is the one pixel nobody meant to show.
   devIndicators: false,
+
+  // The owner signs in their own browser, so the client bundle needs to know which contract
+  // and which policy it is talking about. Both are public information — an address on a
+  // block explorer — and neither is a secret being leaked.
+  //
+  // Mapped from the existing names rather than renaming them in `.env`, because the agent
+  // and the Foundry scripts read the same file and would not follow a rename.
+  env: {
+    NEXT_PUBLIC_POLICY_ENGINE_ADDRESS: process.env.POLICY_ENGINE_ADDRESS ?? "",
+    NEXT_PUBLIC_OWNER_ADDRESS: process.env.OWNER_ADDRESS ?? "",
+  },
 };
 
 export default nextConfig;

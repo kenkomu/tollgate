@@ -34,3 +34,34 @@ export const policyFor = cache(async (owner: Address): Promise<Policy> => {
 
 /** The owner this deployment is configured for. One policy per owner, per ADR 0004. */
 export const owner = OWNER;
+
+/**
+ * Reads that are allowed to fail.
+ *
+ * Arc's public endpoint rate-limits and, under load, times out. Letting that propagate turns
+ * "the chain is briefly slow" into a 500 and tells the owner nothing — worst of all during a
+ * demo, where it reads as the product being broken rather than the endpoint being busy.
+ *
+ * The result type is deliberate: callers cannot forget to handle the failure, because there
+ * is no policy to read until they check. Showing stale numbers instead would be the more
+ * dangerous choice — every figure on these pages is a claim about what an agent may spend
+ * right now, and a stale one is a false claim.
+ */
+export type Read<T> = {ok: true; value: T} | {ok: false; error: string};
+
+async function attempt<T>(work: () => Promise<T>): Promise<Read<T>> {
+  try {
+    return {ok: true, value: await work()};
+  } catch (error) {
+    const raw = error instanceof Error ? error.message : String(error);
+    return {ok: false, error: raw.split("\n")[0] ?? raw};
+  }
+}
+
+export function tryPolicy(who: Address): Promise<Read<Policy>> {
+  return attempt(() => policyFor(who));
+}
+
+export function tryAudit(who: Address): Promise<Read<Awaited<ReturnType<typeof auditFor>>>> {
+  return attempt(() => auditFor(who));
+}

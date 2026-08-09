@@ -1,15 +1,19 @@
 import {Suspense} from "react";
 import {ApprovalQueue} from "../../components/ApprovalQueue.tsx";
-import {NotConfigured, PageHead} from "../../components/PageHead.tsx";
+import {ChainUnreachable, NotConfigured, PageHead} from "../../components/PageHead.tsx";
 import {PayeeRow} from "../../components/PayeeRow.tsx";
 import {AddPayeeEditor} from "../../components/PolicyEditors.tsx";
-import {auditFor, owner, pendingApprovals} from "../../lib/data.ts";
+import {owner, pendingApprovals, tryAudit} from "../../lib/data.ts";
 import {isConfigured} from "../../lib/chain.ts";
 
 export const dynamic = "force-dynamic";
 
 async function Allowlist() {
-  const audit = await auditFor(owner);
+  const read = await tryAudit(owner);
+  // "No payees approved" and "we could not read the allowlist" must never look the same.
+  // The first means the agent can pay nobody; the second means we do not know who it can pay.
+  if (!read.ok) return <ChainUnreachable detail={read.error} />;
+  const audit = read.value;
 
   return (
     <section className="card">

@@ -1,35 +1,25 @@
-"use server";
+"use client";
 
 import {arcFees, arcTestnet, USDC_ADDRESS} from "@tollgate/shared";
-import {revalidatePath} from "next/cache";
-import {createWalletClient, erc20Abi, http, type Address, type Hex} from "viem";
-import {privateKeyToAccount} from "viem/accounts";
+import {erc20Abi, type Address} from "viem";
 import {ENGINE, abi, publicClient} from "./chain.ts";
-import {removeRequest} from "./approvals.ts";
+import {clearRequest} from "./approval-actions.ts";
+import {NoWalletError, OwnerMismatchError, ownerWallet} from "./wallet.ts";
 
 /**
- * Owner actions.
+ * Owner actions, signed by the owner.
  *
- * MVP SHORTCUT, stated plainly: the owner's key is read from the server environment and
- * these actions are signed here. That is convenient for a testnet demo and it sits
- * awkwardly against the non-custodial thesis — a server holding the owner key is exactly
- * the arrangement Tollgate argues against.
+ * These used to run on the server against `DEPLOYER_PRIVATE_KEY`. They now run in the
+ * owner's browser against their own wallet, which means the server no longer holds anything
+ * that can move money or change a policy. Delete this deployment and the owner still has
+ * every one of these actions available from any wallet or block explorer — which is what
+ * §3.5 requires of the kill switch, and is now true of all of them.
  *
- * The intended replacement is a Circle Modular Wallet: the owner authenticates with a
- * passkey, the key never leaves their device, and these become client-side transactions.
- * `PolicyEngine` does not care which it is — the owner is just an address that granted an
- * allowance — so this is a swap, not a rewrite. See BACKLOG.md at the repo root.
+ * The function signatures are unchanged from the server-action version, so the components
+ * calling them did not have to care where the signature comes from.
  */
 
-function ownerWallet() {
-  const key = process.env.DEPLOYER_PRIVATE_KEY as Hex | undefined;
-  if (!key) throw new Error("DEPLOYER_PRIVATE_KEY is not set — owner actions are unavailable.");
-  return createWalletClient({
-    account: privateKeyToAccount(key),
-    chain: arcTestnet,
-    transport: http(process.env.ARC_RPC_URL ?? arcTestnet.rpcUrls.default.http[0]),
-  });
-}
+export type WriteResult = {ok: boolean; hash?: string; error?: string};
 
 type OwnerWrite =
   | "setPaused"
@@ -42,105 +32,58 @@ type OwnerWrite =
   | "revokePolicy";
 
 async function send(functionName: OwnerWrite, args: readonly unknown[]): Promise<string> {
-  const wallet = ownerWallet();
+  const {client, account} = await ownerWallet();
 
   // Floored to Arc's 20 Gwei minimum. An owner action left underpriced sits in the mempool
   // indefinitely, and the most important of these is the kill switch — the one write in
   // this system that must never be the thing that failed to mine.
   const fees = await arcFees(publicClient);
 
+  // Simulated before signing so the wallet prompt is only ever raised for a call that will
+  // actually succeed. Asking someone to approve a transaction that is going to revert
+  // teaches them to approve without reading.
   const {request} = await publicClient.simulateContract({
     address: ENGINE,
     abi,
     functionName,
     args: args as never,
-    account: wallet.account,
+    account,
     ...fees,
   });
-  const hash = await wallet.writeContract(request);
 
-  // Bounded. Without a timeout this server action hangs for viem's 180s default, and the
-  // owner is left staring at "Signing…" with no idea whether the agent is stopped.
+  const hash = await client.writeContract(request);
+
+  // Bounded. Without a timeout this hangs for viem's 180s default and the owner is left
+  // staring at "Signing…" with no idea whether the agent is stopped.
   await publicClient.waitForTransactionReceipt({hash, timeout: 60_000});
   return hash;
 }
 
 /**
- * The kill switch.
- *
- * One transaction, owner straight to chain. No queue, no relayer, no dependency on this
- * dashboard staying up — if this server dies mid-click the owner can still call
- * `setPaused` from any wallet or block explorer, and §3.5 requires exactly that.
- */
-export async function setPaused(paused: boolean): Promise<{ok: boolean; hash?: string; error?: string}> {
-  try {
-    const hash = await send("setPaused", [paused]);
-    revalidatePath("/");
-    return {ok: true, hash};
-  } catch (error) {
-    return {ok: false, error: error instanceof Error ? error.message : String(error)};
-  }
-}
-
-/** Add a payee to the on-chain allowlist. The only way past a PAYEE_NOT_ALLOWED refusal. */
-export async function approvePayee(payee: Address): Promise<{ok: boolean; hash?: string; error?: string}> {
-  try {
-    const hash = await send("setPayee", [payee, true]);
-    await removeRequest(payee);
-    revalidatePath("/");
-    return {ok: true, hash};
-  } catch (error) {
-    return {ok: false, error: error instanceof Error ? error.message : String(error)};
-  }
-}
-
-/** Remove a payee. Takes effect on the next attempted payment. */
-export async function revokePayee(payee: Address): Promise<{ok: boolean; hash?: string; error?: string}> {
-  try {
-    const hash = await send("setPayee", [payee, false]);
-    revalidatePath("/");
-    return {ok: true, hash};
-  } catch (error) {
-    return {ok: false, error: error instanceof Error ? error.message : String(error)};
-  }
-}
-
-/** Dismiss a request without allowlisting. The agent stays refused. */
-export async function declineRequest(payee: Address): Promise<{ok: boolean}> {
-  await removeRequest(payee);
-  revalidatePath("/");
-  return {ok: true};
-}
-
-/*//////////////////////////////////////////////////////////////
-                            POLICY EDITING
-//////////////////////////////////////////////////////////////*/
-
-export type WriteResult = {ok: boolean; hash?: string; error?: string};
-
-/**
- * Every editor below runs through this.
+ * Every action below runs through this.
  *
  * Failures are returned rather than thrown, because the interesting ones are not bugs —
- * they are the contract refusing an edit, and the owner needs to read that. Lowering a
- * budget below what has already been spent is the common case, and `BudgetBelowSpent`
- * carrying two numbers is more useful to them than a stack trace.
+ * they are the contract refusing an edit, or the owner declining to sign, and both need to
+ * be read rather than logged.
  */
 async function attempt(work: () => Promise<string>): Promise<WriteResult> {
   try {
-    const hash = await work();
-    revalidatePath("/");
-    revalidatePath("/policy");
-    revalidatePath("/payees");
-    return {ok: true, hash};
+    return {ok: true, hash: await work()};
   } catch (error) {
-    const raw = error instanceof Error ? error.message : String(error);
-    return {ok: false, error: humanise(raw)};
+    return {ok: false, error: humanise(error)};
   }
 }
 
-/** Contract errors are precise and unreadable. Keep the precision, drop the encoding. */
-function humanise(raw: string): string {
+/** Contract and wallet errors are precise and unreadable. Keep the precision, drop the encoding. */
+function humanise(error: unknown): string {
+  if (error instanceof NoWalletError || error instanceof OwnerMismatchError) return error.message;
+
+  const code = (error as {code?: number})?.code;
+  // 4001 is the EIP-1193 "user rejected request". Not a failure worth alarming anyone about.
+  if (code === 4001) return "You declined the signature. Nothing was changed.";
+
+  const raw = error instanceof Error ? error.message : String(error);
+
   if (raw.includes("BudgetBelowSpent")) {
     return "That budget is below what the agent has already spent. Lowering it further would break the guarantee that spending never exceeds the cap — set it at or above the amount already gone.";
   }
@@ -153,9 +96,47 @@ function humanise(raw: string): string {
   if (raw.includes("ZeroAddress")) return "That address is empty.";
   if (raw.includes("PolicyExists")) return "This owner already has a policy. Edit it instead of creating another.";
   if (raw.includes("NoPolicy")) return "No policy exists for this owner yet.";
+  if (raw.includes("insufficient funds")) {
+    return "Not enough USDC in your wallet to cover gas for this transaction. Top up at faucet.circle.com.";
+  }
   // Viem wraps the useful line in a lot of context; the first is almost always it.
   return raw.split("\n")[0] ?? raw;
 }
+
+/**
+ * The kill switch.
+ *
+ * One transaction, owner straight to chain. No queue, no relayer, and now no server key
+ * either — if this dashboard dies mid-click the owner can still call `setPaused` from any
+ * wallet or block explorer.
+ */
+export async function setPaused(paused: boolean): Promise<WriteResult> {
+  return attempt(() => send("setPaused", [paused]));
+}
+
+/** Add a payee to the on-chain allowlist. The only way past a PAYEE_NOT_ALLOWED refusal. */
+export async function approvePayee(payee: Address): Promise<WriteResult> {
+  const result = await attempt(() => send("setPayee", [payee, true]));
+  // Only clear the request once the allowlisting is actually on chain. Clearing it first
+  // would lose the ask if the owner declined the signature.
+  if (result.ok) await clearRequest(payee);
+  return result;
+}
+
+/** Remove a payee. Takes effect on the next attempted payment. */
+export async function revokePayee(payee: Address): Promise<WriteResult> {
+  return attempt(() => send("setPayee", [payee, false]));
+}
+
+/** Dismiss a request without allowlisting. The agent stays refused. */
+export async function declineRequest(payee: Address): Promise<{ok: boolean}> {
+  await clearRequest(payee);
+  return {ok: true};
+}
+
+/*//////////////////////////////////////////////////////////////
+                            POLICY EDITING
+//////////////////////////////////////////////////////////////*/
 
 /** Lifetime budget and the ceiling on any single payment. */
 export async function setCaps(budgetCap: bigint, perTxCap: bigint): Promise<WriteResult> {
@@ -208,7 +189,7 @@ export async function revokePolicy(): Promise<WriteResult> {
 /**
  * Create the policy and fund it.
  *
- * Two transactions, and the order matters: approve first, then create. A policy with no
+ * Two signatures, and the order matters: approve first, then create. A policy with no
  * allowance behind it looks completely healthy on this dashboard and refuses every payment
  * with INSUFFICIENT_ALLOWANCE, which is a confusing first experience. Doing both here is
  * what removes the `forge script` step from onboarding.
@@ -222,18 +203,18 @@ export async function createPolicy(params: {
   expiry: bigint;
 }): Promise<WriteResult> {
   return attempt(async () => {
-    const wallet = ownerWallet();
+    const {client, account} = await ownerWallet();
     const fees = await arcFees(publicClient);
 
     // Exactly the budget, never max. If this contract is ever wrong, the blast radius is
     // the outstanding allowance rather than the owner's whole balance — ADR 0001.
-    const approval = await wallet.writeContract({
+    const approval = await client.writeContract({
       address: USDC_ADDRESS,
       abi: erc20Abi,
       functionName: "approve",
       args: [ENGINE, params.budgetCap],
       chain: arcTestnet,
-      account: wallet.account,
+      account,
       ...fees,
     });
     await publicClient.waitForTransactionReceipt({hash: approval, timeout: 60_000});
@@ -252,15 +233,15 @@ export async function createPolicy(params: {
 /** Top up (or cut) the allowance behind an existing policy. */
 export async function setAllowance(amount: bigint): Promise<WriteResult> {
   return attempt(async () => {
-    const wallet = ownerWallet();
+    const {client, account} = await ownerWallet();
     const fees = await arcFees(publicClient);
-    const hash = await wallet.writeContract({
+    const hash = await client.writeContract({
       address: USDC_ADDRESS,
       abi: erc20Abi,
       functionName: "approve",
       args: [ENGINE, amount],
       chain: arcTestnet,
-      account: wallet.account,
+      account,
       ...fees,
     });
     await publicClient.waitForTransactionReceipt({hash, timeout: 60_000});

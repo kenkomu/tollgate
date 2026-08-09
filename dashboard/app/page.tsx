@@ -4,12 +4,12 @@ import type {Address} from "viem";
 import {availableNow, formatUsdc, formatUsdcApprox} from "@tollgate/shared";
 import {Feed} from "../components/Feed.tsx";
 import {Meter} from "../components/Meter.tsx";
-import {NoPolicy, NotConfigured, PageHead} from "../components/PageHead.tsx";
+import {ChainUnreachable, NoPolicy, NotConfigured, PageHead} from "../components/PageHead.tsx";
 import {SkeletonTiles} from "../components/Skeleton.tsx";
 import {SpendChart, type SpendPoint} from "../components/SpendChart.tsx";
 import {StatTile} from "../components/StatTile.tsx";
 import {Verdict} from "../components/Verdict.tsx";
-import {auditFor, owner, policyFor} from "../lib/data.ts";
+import {owner, tryAudit, tryPolicy} from "../lib/data.ts";
 import {ENGINE, isConfigured, shortAddress} from "../lib/chain.ts";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +19,21 @@ export const dynamic = "force-dynamic";
  * the caps — which need only `getPolicy` — paint immediately.
  */
 async function SpendSection({owner: who, budgetCap}: {owner: Address; budgetCap: bigint}) {
-  const audit = await auditFor(who);
+  const read = await tryAudit(who);
+  if (!read.ok) {
+    return (
+      <section className="card">
+        <h2 className="card-title">History unavailable</h2>
+        <p className="card-note">
+          The policy above was read successfully, so the limits are current. The log walk did
+          not complete, so this run of payments is incomplete rather than empty — Arc&rsquo;s
+          public endpoint rate-limits under load. Reload in a moment.
+        </p>
+        <p className="card-note">{read.error}</p>
+      </section>
+    );
+  }
+  const audit = read.value;
 
   /**
    * The chart's right-hand bound, read once on the server and passed down as a prop.
@@ -112,7 +126,17 @@ export default async function Page() {
     );
   }
 
-  const policy = await policyFor(owner);
+  const read = await tryPolicy(owner);
+  if (!read.ok) {
+    return (
+      <>
+        <PageHead title="Overview" lede="Agent spend control on Arc." />
+        <ChainUnreachable detail={read.error} />
+      </>
+    );
+  }
+
+  const policy = read.value;
   if (!policy.exists) {
     return (
       <>

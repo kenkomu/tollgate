@@ -63,3 +63,38 @@ export function NoPolicy() {
     </>
   );
 }
+
+/**
+ * The chain is unreachable.
+ *
+ * The most important state in this app to get right, and the easiest to get wrong by
+ * omission. Every number on every other page is a claim about what an agent is currently
+ * allowed to spend. When we cannot reach Arc we do not know any of them, and the honest
+ * answer is to say so — not to show the last thing we saw, and certainly not to render a
+ * framework error page that reads as "the product is broken".
+ *
+ * The kill switch is deliberately still described here, because it does not depend on this
+ * app: it is a direct owner-to-chain write and works from any wallet or block explorer.
+ * Someone who reached this screen because something is going wrong needs to know that.
+ */
+export function ChainUnreachable({detail}: {detail?: string}) {
+  return (
+    <section className="card stopped">
+      <h2 className="card-title">Cannot reach Arc</h2>
+      <p className="card-note">
+        This page could not read the contract, so it cannot tell you what your agent is
+        allowed to spend right now. Nothing shown elsewhere should be trusted until this
+        clears — and no policy has changed, because reading is all this app was trying to do.
+      </p>
+      <p className="prose">
+        Your controls do not depend on this dashboard. The policy lives at{" "}
+        <a href={addressUrl(ENGINE)} target="_blank" rel="noreferrer">
+          <code>{shortAddress(ENGINE)}</code> <ExternalIcon size={11} />
+        </a>{" "}
+        and <code>setPaused</code> can be called from any wallet or block explorer. That is
+        the whole point of the kill switch being an on-chain write.
+      </p>
+      {detail ? <p className="card-note" style={{marginTop: 10}}>{detail}</p> : null}
+    </section>
+  );
+}

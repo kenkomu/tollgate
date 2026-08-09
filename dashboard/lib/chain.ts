@@ -1,4 +1,4 @@
-import {arcTestnet, policyEngineAbi} from "@tollgate/shared";
+import {ARC_POLLING_INTERVAL_MS, arcTestnet, policyEngineAbi} from "@tollgate/shared";
 import {createPublicClient, http, type Address} from "viem";
 
 /**
@@ -12,13 +12,43 @@ import {createPublicClient, http, type Address} from "viem";
  * Postgres arrives in Phase 2 when the read volume needs it — as a cache in front of this,
  * never as the authority.
  */
+/**
+ * Reads, with the public endpoint's behaviour accounted for.
+ *
+ * Arc's public RPC rate-limits bursts with `-32005` and, under load, simply takes a long
+ * time. viem's defaults — a 10s timeout and three retries at 150ms — are tuned for a
+ * dedicated endpoint and produce a hard failure here: loading three pages at once while the
+ * settled-log cache is cold was enough to time out `getPolicy` and turn the overview into a
+ * 500. A dashboard whose job is to tell you whether your agent is bounded must not be the
+ * component that falls over when the chain is slow.
+ *
+ * Longer timeout, more retries, wider backoff. Arc settles in under a second, so a request
+ * that has taken 20 seconds is queued behind a rate limit rather than mid-flight.
+ */
 export const publicClient = createPublicClient({
   chain: arcTestnet,
-  transport: http(process.env.ARC_RPC_URL ?? arcTestnet.rpcUrls.default.http[0]),
+  transport: http(process.env.ARC_RPC_URL ?? arcTestnet.rpcUrls.default.http[0], {
+    timeout: 20_000,
+    retryCount: 4,
+    retryDelay: 400,
+  }),
+  pollingInterval: ARC_POLLING_INTERVAL_MS,
 });
 
-export const ENGINE = (process.env.POLICY_ENGINE_ADDRESS ?? "") as Address;
-export const OWNER = (process.env.OWNER_ADDRESS ?? "") as Address;
+/**
+ * Read on both sides of the wire.
+ *
+ * On the server the plain names are present. In the browser only `NEXT_PUBLIC_*` survives
+ * bundling, and `next.config.ts` maps them across. Both are public addresses, not secrets —
+ * the secret that used to live in this process is gone entirely, see `lib/owner.ts`.
+ */
+export const ENGINE = (process.env.POLICY_ENGINE_ADDRESS ||
+  process.env.NEXT_PUBLIC_POLICY_ENGINE_ADDRESS ||
+  "") as Address;
+
+export const OWNER = (process.env.OWNER_ADDRESS ||
+  process.env.NEXT_PUBLIC_OWNER_ADDRESS ||
+  "") as Address;
 
 export const abi = policyEngineAbi;
 

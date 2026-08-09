@@ -1,6 +1,7 @@
 "use client";
 
 import {useState, useTransition} from "react";
+import {useRouter} from "next/navigation";
 import {setPaused} from "../lib/owner.ts";
 import {txUrl} from "../lib/chain.ts";
 import {ExternalIcon, ShieldIcon, StopIcon} from "./Icon.tsx";
@@ -12,6 +13,7 @@ import {ExternalIcon, ShieldIcon, StopIcon} from "./Icon.tsx";
  * where red appears. An owner should never have to hunt for this.
  */
 export function KillSwitch({paused}: {paused: boolean}) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [hash, setHash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -21,8 +23,12 @@ export function KillSwitch({paused}: {paused: boolean}) {
     setHash(null);
     startTransition(async () => {
       const result = await setPaused(!paused);
-      if (result.ok) setHash(result.hash ?? null);
-      else setError(result.error ?? "Failed");
+      if (result.ok) {
+        setHash(result.hash ?? null);
+        router.refresh();
+      } else {
+        setError(result.error ?? "Failed");
+      }
     });
   }
 

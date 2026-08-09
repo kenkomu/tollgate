@@ -218,3 +218,27 @@ suite("describe", () => {
     }
   });
 });
+
+suite("planWindows: the horizon must be opt-in", () => {
+  const DEPLOY = 1_000_000n;
+
+  it("keeps the deployment window when no horizon is applied", () => {
+    /**
+     * The regression this guards. Arc advances ~2 blocks/second, so a 400,000-block horizon
+     * is about two and a half days — and once the chain passed it, the windows holding the
+     * first payments ever made were dropped from the walk. Nothing errored; the audit log
+     * just started shortening from the front.
+     */
+    const head = DEPLOY + MAX_LOG_BLOCK_RANGE * 30n;
+    const windows = planWindows(DEPLOY, head, head);
+
+    assert.equal(windows[0]!.from, DEPLOY, "the deployment block must still be covered");
+    assert.equal(windows.at(-1)!.to, head);
+  });
+
+  it("still honours a horizon when one is asked for", () => {
+    const head = DEPLOY + MAX_LOG_BLOCK_RANGE * 30n;
+    const bounded = planWindows(DEPLOY, head, MAX_LOG_BLOCK_RANGE * 2n);
+    assert.ok(bounded[0]!.from > DEPLOY, "a requested horizon should still drop old windows");
+  });
+});
