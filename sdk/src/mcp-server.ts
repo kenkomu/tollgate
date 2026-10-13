@@ -10,6 +10,7 @@ import {createMcpServer} from "./mcp.ts";
  *   POLICY_ENGINE_ADDRESS  the deployed PolicyEngine
  *   AGENT_PRIVATE_KEY      the agent's session key (never the owner's)
  *   ARC_RPC_URL            optional; ARC_CHAIN_ID=5042 selects mainnet
+ *   TOLLGATE_SERVICE_URL   optional; enables request_payee_approval
  *
  * Logs go to stderr: stdout belongs to the protocol.
  */
@@ -28,5 +29,5 @@ const client = new TollgateClient({
   rpcUrl: process.env.ARC_RPC_URL,
 });
 
-await createMcpServer(client).connect(new StdioServerTransport());
+await createMcpServer(client, {serviceUrl: process.env.TOLLGATE_SERVICE_URL}).connect(new StdioServerTransport());
 console.error("tollgate-mcp: ready on stdio");

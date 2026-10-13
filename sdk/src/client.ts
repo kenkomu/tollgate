@@ -434,6 +434,16 @@ export class TollgateClient {
     })) as Address;
   }
 
+  /** Is this payee on the owner's on-chain allowlist? The only authority on "approved". */
+  async isAllowedPayee(owner: Address, payee: Address): Promise<boolean> {
+    return (await this.#publicClient.readContract({
+      address: this.engine,
+      abi: policyEngineAbi,
+      functionName: "isAllowedPayee",
+      args: [owner, payee],
+    })) as boolean;
+  }
+
   /** Velocity headroom right now, in 6-decimal USDC. */
   async availableNow(owner: Address): Promise<bigint> {
     return (await this.#publicClient.readContract({

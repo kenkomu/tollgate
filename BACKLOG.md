@@ -57,9 +57,10 @@ inventory. Both were reconciled against the source tree on 2026-08-09.
 
 ## Agent and SDK
 
-- [ ] **Package the SDK.** `TollgateClient` is the actual product for a developer and it
-      currently lives inside the demo app. It should be `@tollgate/sdk` on npm.
-- [ ] **Framework adapters** — an MCP server, a LangChain tool, a Vercel AI SDK tool.
+- [x] **Package the SDK.** `TollgateClient` now lives in `sdk/` as `@tollgate/sdk`. Not yet
+      published to npm.
+- [~] **Framework adapters** — MCP server and Glove tools done; LangChain and Vercel AI SDK
+      still to do.
 - [ ] **Deterministic attacker script.** The compromised-agent demo relies on a model
       choosing to attack. A scripted adversary that tries every evasion in a fixed order
       would make the guarantee reproducible instead of anecdotal. **This is the single

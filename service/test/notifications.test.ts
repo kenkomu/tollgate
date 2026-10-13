@@ -179,3 +179,25 @@ describe("delivering exactly once", () => {
     assert.equal(store.claimNotification("0xaaa:0", "test"), true);
   });
 });
+
+describe("approval requests", () => {
+  it("reaches the owner once, with a deep link to the request", async () => {
+    const {Store} = await import("../src/store.ts");
+    const {Notifier} = await import("../src/notifications.ts");
+    const store = new Store(openMemoryDb());
+    const sent: string[] = [];
+    const notifier = new Notifier(store, {name: "test", async send(_t, n) { sent.push(n.deepLink); }});
+    const approval = store.requestApproval({
+      owner: "0x00000000000000000000000000000000000000aa",
+      serviceId: "direct",
+      serviceName: "Direct payment",
+      payee: "0x00000000000000000000000000000000000000bb",
+      amount: "$2.00",
+      why: "new data supplier",
+    });
+
+    assert.equal(await notifier.notifyApproval("0x00000000000000000000000000000000000000aa", approval), true);
+    assert.equal(await notifier.notifyApproval("0x00000000000000000000000000000000000000aa", approval), false);
+    assert.deepEqual(sent, [`tollgate://approvals/${approval.id}`]);
+  });
+});

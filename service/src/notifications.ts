@@ -1,5 +1,5 @@
 import {explainToOwner, formatUsdc, type Activity} from "@tollgate/shared";
-import type {Store} from "./store.ts";
+import type {ApprovalRow, Store} from "./store.ts";
 
 /**
  * Telling the owner something happened.
@@ -85,6 +85,23 @@ export function describeForOwner(event: Activity): Notification | null {
   }
 }
 
+/**
+ * The agent is blocked on the owner. This is the second of the two things worth interrupting
+ * someone for, and until now it reached the phone only if the owner happened to open the app:
+ * the request sat in the queue while the agent waited on a human who did not know.
+ */
+export function describeApproval(approval: ApprovalRow): Notification {
+  return {
+    eventKey: `approval:${approval.id}`,
+    title: "Your agent is waiting on you",
+    body:
+      `It wants to pay ${short(approval.payee)}${approval.amount ? ` ${approval.amount}` : ""}` +
+      `${approval.why ? `: ${approval.why}` : "."}`,
+    deepLink: `tollgate://approvals/${approval.id}`,
+    urgency: "high",
+  };
+}
+
 function short(address?: string): string {
   return address ? `${address.slice(0, 6)}…${address.slice(-4)}` : "an address";
 }
@@ -126,5 +143,16 @@ export class Notifier {
     }
 
     return sent;
+  }
+
+  /** One push per request, however many times the agent asks. Claimed by request id. */
+  async notifyApproval(owner: `0x${string}`, approval: ApprovalRow): Promise<boolean> {
+    const notification = describeApproval(approval);
+    if (!this.#store.claimNotification(notification.eventKey, this.#channel.name)) return false;
+    await this.#channel.send(
+      this.#store.devicesFor(owner).map((device) => device.token),
+      notification,
+    );
+    return true;
   }
 }

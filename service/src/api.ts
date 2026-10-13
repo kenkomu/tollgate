@@ -1,6 +1,6 @@
 import {createServer, type IncomingMessage, type Server, type ServerResponse} from "node:http";
 import {isAddress, type Address} from "viem";
-import type {Store} from "./store.ts";
+import type {ApprovalRow, Store} from "./store.ts";
 
 /**
  * The read API the phone talks to.
@@ -67,6 +67,8 @@ export interface ApiConfig {
   engine: Address;
   /** Reports how far the indexer has got, so a client can tell fresh data from stale. */
   head?: () => Promise<bigint | null>;
+  /** Called after an approval request is filed, so the owner hears about it. Never blocks the reply. */
+  onApprovalRequested?: (approval: ApprovalRow) => Promise<unknown> | void;
 }
 
 export function createApi(config: ApiConfig): Server {
@@ -140,6 +142,12 @@ export function createApi(config: ApiConfig): Server {
       why: String(body.why ?? ""),
     });
     json(res, 201, approval);
+    // After replying: the agent must not wait on a push provider to learn its ask was filed.
+    if (approval.resolvedAt === null) {
+      void Promise.resolve(config.onApprovalRequested?.(approval)).catch((error) =>
+        console.error("approval notification failed:", error),
+      );
+    }
   });
 
   /**

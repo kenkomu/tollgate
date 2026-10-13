@@ -3,6 +3,7 @@ import {isAddress, type Address} from "viem";
 import {z} from "zod";
 import {PolicyRefusedError, type TollgateClient} from "./client.ts";
 import {explainSubmissionFailure} from "./explain.ts";
+import {ApprovalInbox} from "./approvals.ts";
 
 /**
  * Framework-neutral tool definitions.
@@ -43,8 +44,17 @@ const parseAmount = (amount: string): bigint | null => {
   }
 };
 
-export function createTools(client: TollgateClient, owner?: Address) {
+export interface ToolOptions {
+  /** The owner whose policy binds this agent. Looked up from the chain when omitted. */
+  owner?: Address;
+  /** The Tollgate service, for filing approval requests. Without it the approval tools say so. */
+  serviceUrl?: string;
+}
+
+export function createTools(client: TollgateClient, options: ToolOptions = {}) {
+  const {owner} = options;
   const resolveOwner = async () => owner ?? (await client.owner());
+  const inbox = new ApprovalInbox({client, owner, serviceUrl: options.serviceUrl});
 
   return [
     tool({
@@ -180,6 +190,58 @@ export function createTools(client: TollgateClient, owner?: Address) {
         } catch (error) {
           return {ok: false, text: explainSubmissionFailure(error)};
         }
+      },
+    }),
+
+    tool({
+      name: "request_payee_approval",
+      description:
+        "Ask the human owner to add a payee to the allowlist. The ONLY way past a PAYEE_NOT_ALLOWED " +
+        "refusal: you cannot approve it yourself. Returns a request id; check it later with check_approval.",
+      shape: {
+        address: z.string().describe("The payee you need, 0x-prefixed"),
+        amount: z.string().optional().describe('What you intend to pay them, e.g. "2.00"'),
+        why: z.string().describe("Why this is worth the owner's attention, in one sentence"),
+      },
+      async run({address, amount, why}) {
+        if (!isAddress(address, {strict: false})) return {ok: false, text: `Not a valid address: ${address}.`};
+        const ticket = await inbox.request({payee: address as Address, amount: amount ? `${amount} USDC` : undefined, why});
+        if (!ticket) {
+          return {
+            ok: false,
+            text:
+              "Could not file the request: no Tollgate service is reachable. Tell the owner directly that you " +
+              `need ${address} approved. Do not retry the payment until they confirm.`,
+          };
+        }
+        return {
+          ok: true,
+          text:
+            `Approval requested. Request id: ${ticket.id}\n` +
+            "The owner has been notified. They approve by signing on chain, which you cannot do or skip. " +
+            "Do other work, then call check_approval with this id. Do not retry the payment before it says approved.",
+        };
+      },
+    }),
+
+    tool({
+      name: "check_approval",
+      description:
+        "Check a payee-approval request. 'approved' is read from the on-chain allowlist, so it is " +
+        "safe to pay once this says so.",
+      shape: {
+        id: z.string().describe("The request id from request_payee_approval"),
+        address: z.string().describe("The payee the request was for"),
+      },
+      async run({id, address}) {
+        if (!isAddress(address, {strict: false})) return {ok: false, text: `Not a valid address: ${address}.`};
+        const status = await inbox.status({id, payee: address as Address});
+        const text = {
+          approved: "APPROVED. The payee is on the on-chain allowlist. You may retry the payment.",
+          declined: "DECLINED by the owner. Do not pay this address. Find another way or report back.",
+          pending: "Still pending. The owner has not acted yet. Keep working on other things and check again later.",
+        }[status];
+        return {ok: status === "approved", text};
       },
     }),
   ];

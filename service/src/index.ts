@@ -53,6 +53,7 @@ const api = createApi({
   owner,
   engine,
   head: () => client.getBlockNumber().catch(() => null),
+  onApprovalRequested: (approval) => notifier.notifyApproval(owner, approval),
 });
 
 const controller = new AbortController();
