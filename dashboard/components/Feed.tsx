@@ -58,7 +58,7 @@ export function Feed({
         Every payment and policy change, read from Arc at page load. Nothing is stored here.
       </p>
 
-      <div className="feed">
+      <div className="feed" role="list" aria-label="Activity" aria-live="polite" aria-relevant="additions">
         {entries.slice(0, limit).map((entry) => {
           const stopped =
             entry.kind === "refused" || entry.kind === "paused" || entry.kind === "payee-removed";
@@ -66,8 +66,8 @@ export function Feed({
           const rowClass = stopped ? "feed-row stopped" : neutral ? "feed-row neutral" : "feed-row";
 
           return (
-            <div className={rowClass} key={entry.key}>
-              <div className="feed-stripe" />
+            <div className={rowClass} key={entry.key} role="listitem">
+              <div className="feed-stripe" aria-hidden="true" />
               <div className="feed-body">
                 <div className="feed-top">
                   <span className="feed-what">

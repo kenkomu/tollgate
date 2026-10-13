@@ -177,14 +177,14 @@ export default async function PolicyPage() {
               {rules.map((row) => (
                 <tr key={row.rule}>
                   <th scope="row">{row.rule}</th>
-                  <td className="num">{row.value}</td>
-                  <td className="muted-cell">{row.stops}</td>
+                  <td className="num" data-label="Setting">{row.value}</td>
+                  <td className="muted-cell" data-label="What it stops">{row.stops}</td>
                 </tr>
               ))}
               <tr>
                 <th scope="row">Payee allowlist</th>
-                <td className="num">strict</td>
-                <td className="muted-cell">
+                <td className="num" data-label="Setting">strict</td>
+                <td className="muted-cell" data-label="What it stops">
                   Any address you have not approved. This is the rule the compromised-agent
                   demo runs into.
                 </td>
