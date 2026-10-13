@@ -4,7 +4,7 @@ import type {Address} from "viem";
 import {availableNow, formatUsdc, formatUsdcApprox} from "@tollgate/shared";
 import {Feed} from "../components/Feed.tsx";
 import {Meter} from "../components/Meter.tsx";
-import {ChainUnreachable, NoPolicy, NotConfigured, PageHead} from "../components/PageHead.tsx";
+import {ChainUnreachable, NoPolicy, NotConfigured, PageHead, PartialHistory} from "../components/PageHead.tsx";
 import {SkeletonTiles} from "../components/Skeleton.tsx";
 import {SpendChart, type SpendPoint} from "../components/SpendChart.tsx";
 import {SetupGuide} from "../components/SetupGuide.tsx";
@@ -87,7 +87,7 @@ async function SpendSection({owner: who, budgetCap}: {owner: Address; budgetCap:
         />
         <StatTile
           label="approved payees"
-          value={String(audit.allowedPayees.length)}
+          value={audit.partialFrom === undefined ? String(audit.allowedPayees.length) : `${audit.allowedPayees.length}+`}
           context="nobody else can be paid"
         />
       </div>
@@ -113,6 +113,7 @@ async function SpendSection({owner: who, budgetCap}: {owner: Address; budgetCap:
         />
       </section>
 
+      <PartialHistory from={audit.partialFrom} />
       <Feed entries={audit.entries} limit={8} more />
     </>
   );

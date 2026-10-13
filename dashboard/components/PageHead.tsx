@@ -100,3 +100,18 @@ export function ChainUnreachable({detail}: {detail?: string}) {
     </section>
   );
 }
+
+/** Said wherever history is shown, when only recent history could be read. */
+export function PartialHistory({from}: {from?: bigint | undefined}) {
+  if (from === undefined) return null;
+  return (
+    <section className="card note-card" role="status">
+      <p className="prose">
+        <strong>Showing recent history only</strong> (from block {from.toString()}, about the last
+        day). The Tollgate service is not running or is still catching up, and reading the whole
+        history straight from Arc would take minutes. Start it with <code>pnpm service</code> for
+        the full record. Your limits above are unaffected: they are read live from the contract.
+      </p>
+    </section>
+  );
+}

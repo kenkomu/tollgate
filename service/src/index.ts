@@ -1,6 +1,6 @@
 import {createPublicClient, http, type Address} from "viem";
-import {ARC_POLLING_INTERVAL_MS, activeChain} from "@tollgate/shared";
-import {createApi} from "./api.ts";
+import {ARC_POLLING_INTERVAL_MS, activeChain, readLogsSplitting} from "@tollgate/shared";
+import {Broadcaster, createApi} from "./api.ts";
 import {openDb} from "./db.ts";
 import {ExpoPushChannel} from "./expo-push.ts";
 import {Indexer} from "./indexer.ts";
@@ -48,7 +48,10 @@ const client = createPublicClient({
   pollingInterval: ARC_POLLING_INTERVAL_MS,
 });
 
+const changes = new Broadcaster();
+
 const api = createApi({
+  changes,
   store,
   owner,
   engine,
@@ -139,7 +142,43 @@ api.listen(port, () => {
   console.log(`    indexed  ${store.lastIndexedBlock() ?? "nothing yet"}\n`);
 });
 
+/**
+ * Watch the unconfirmed tip for contract events and tell open clients.
+ *
+ * Separate from the indexer on purpose. The indexer stores only blocks 64 confirmations deep,
+ * about 30 seconds behind; a dashboard waiting on it would show a payment later than its old
+ * 12-second poll did. This reads the last few blocks every two seconds, stores nothing, and
+ * only runs while someone is listening.
+ */
+async function watchTip(): Promise<void> {
+  let lastSeen: bigint | null = null;
+  while (!controller.signal.aborted) {
+    if (changes.size > 0) {
+      try {
+        const head = await client.getBlockNumber();
+        if (lastSeen === null || head - lastSeen > 2_000n) lastSeen = head;
+        if (head > lastSeen) {
+          const from = lastSeen + 1n;
+          const logs = await readLogsSplitting(
+            (fromBlock, toBlock) => client.getLogs({address: engine!, fromBlock, toBlock}),
+            from,
+            head,
+          );
+          lastSeen = head;
+          if (logs.length > 0) changes.publish({block: head, events: logs.length});
+        }
+      } catch {
+        // Missed tick: the next one covers the same blocks, because lastSeen did not move.
+      }
+    } else {
+      lastSeen = null;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
+  }
+}
+
 void loop();
+void watchTip();
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {

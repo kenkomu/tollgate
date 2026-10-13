@@ -18,6 +18,31 @@ import type {ApprovalRow, Store} from "./store.ts";
  * quietly giving away the first time an endpoint would be convenient.
  */
 
+/**
+ * Fan-out of "something changed" to every open dashboard and phone.
+ *
+ * One process watches the chain tip and tells everyone, instead of every open tab
+ * re-rendering its whole page on a timer. An idle tab now costs nothing; a payment reaches
+ * the screen within a couple of seconds of landing.
+ */
+export class Broadcaster {
+  #listeners = new Set<(data: string) => void>();
+
+  subscribe(listener: (data: string) => void): () => void {
+    this.#listeners.add(listener);
+    return () => this.#listeners.delete(listener);
+  }
+
+  publish(event: Record<string, unknown>): void {
+    const data = JSON.stringify(event, (_k, v) => (typeof v === "bigint" ? v.toString() : v));
+    for (const listener of this.#listeners) listener(data);
+  }
+
+  get size(): number {
+    return this.#listeners.size;
+  }
+}
+
 type Handler = (
   req: IncomingMessage,
   res: ServerResponse,
@@ -69,6 +94,8 @@ export interface ApiConfig {
   head?: () => Promise<bigint | null>;
   /** Called after an approval request is filed, so the owner hears about it. Never blocks the reply. */
   onApprovalRequested?: (approval: ApprovalRow) => Promise<unknown> | void;
+  /** Where "changed" events come from, for the /stream endpoint. */
+  changes?: Broadcaster;
 }
 
 export function createApi(config: ApiConfig): Server {
@@ -105,6 +132,31 @@ export function createApi(config: ApiConfig): Server {
       indexedThrough: store.lastIndexedBlock(),
       chainHead: head,
       events: store.eventCount(),
+    });
+  });
+
+  /**
+   * Server-sent events: one `changed` message whenever the contract emits something.
+   *
+   * Carries no data a client should trust, only "go and re-read". The client re-reads from
+   * the chain and the index exactly as it would on a timer, so a forged or dropped message can
+   * at worst cause one extra read or one missed refresh, never a wrong number.
+   */
+  route("GET", "/stream", (req, res) => {
+    res.writeHead(200, {
+      "content-type": "text/event-stream",
+      "cache-control": "no-store",
+      connection: "keep-alive",
+      "access-control-allow-origin": "*",
+    });
+    res.write(": connected\n\n");
+
+    const unsubscribe = config.changes?.subscribe((data) => res.write(`event: changed\ndata: ${data}\n\n`));
+    // A comment every 25s keeps proxies from closing an idle stream.
+    const heartbeat = setInterval(() => res.write(": ping\n\n"), 25_000);
+    req.on("close", () => {
+      clearInterval(heartbeat);
+      unsubscribe?.();
     });
   });
 

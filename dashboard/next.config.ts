@@ -24,6 +24,8 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_POLICY_ENGINE_ADDRESS: process.env.POLICY_ENGINE_ADDRESS ?? "",
     NEXT_PUBLIC_OWNER_ADDRESS: process.env.OWNER_ADDRESS ?? "",
     NEXT_PUBLIC_ARC_CHAIN_ID: process.env.ARC_CHAIN_ID ?? "",
+    // Where the live stream comes from. Public: it serves only "something changed".
+    NEXT_PUBLIC_TOLLGATE_SERVICE_URL: process.env.TOLLGATE_SERVICE_URL ?? "http://localhost:8080",
   },
 };
 

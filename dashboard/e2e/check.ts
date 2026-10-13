@@ -61,14 +61,19 @@ const browser = await chromium.launch({
 });
 
 const failures: string[] = [];
+const skippedShots: string[] = [];
 
 for (const scheme of ["dark", "light"] as const) {
   for (const width of WIDTHS) {
     const page = await browser.newPage({viewport: {width, height: 900}, colorScheme: scheme});
     for (const route of ROUTES) {
       // Chain reads can be slow on the public RPC; a page stuck on its skeleton is still a page.
-      await page.goto(`${BASE}${route}`, {waitUntil: "domcontentloaded", timeout: 60_000});
-      await page.waitForLoadState("networkidle", {timeout: 25_000}).catch(() => undefined);
+      // "commit", not "domcontentloaded": a streamed page only completes its document once
+      // every Suspense boundary resolves, and history reads can be slow on the public RPC. The
+      // layout is what is under test; a section still showing its skeleton is still laid out.
+      await page.goto(`${BASE}${route}`, {waitUntil: "commit", timeout: 60_000});
+      await page.waitForLoadState("domcontentloaded", {timeout: 30_000}).catch(() => undefined);
+      await page.waitForLoadState("networkidle", {timeout: 10_000}).catch(() => undefined);
 
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
       if (overflow > 1) failures.push(`${route} @${width} ${scheme}: ${overflow}px horizontal overflow`);
@@ -87,7 +92,10 @@ for (const scheme of ["dark", "light"] as const) {
       }
 
       const name = `${route === "/" ? "overview" : route.slice(1)}-${width}-${scheme}.png`;
-      await page.screenshot({path: resolve(SHOTS, name), fullPage: true});
+      // Best effort: a screenshot waits for fonts, which wait for a streamed document to finish.
+      await page.screenshot({path: resolve(SHOTS, name), fullPage: true, timeout: 20_000}).catch(() => {
+        skippedShots.push(name);
+      });
     }
     await page.close();
   }
@@ -101,4 +109,5 @@ if (unique.length) {
   console.error(`\n${unique.length} UI problem(s):\n  ${unique.join("\n  ")}\n`);
   process.exit(1);
 }
+if (skippedShots.length) console.log(`(${skippedShots.length} screenshot(s) skipped while history was still loading)`);
 console.log(`UI check passed: ${ROUTES.length} routes × ${WIDTHS.length} widths × 2 colour schemes. Screenshots in e2e/shots/.`);

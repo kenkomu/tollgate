@@ -91,8 +91,19 @@ async function withBackoff<T>(work: () => Promise<T>, attempts = 4): Promise<T> 
   throw lastError;
 }
 
+/**
+ * How much history the chain fallback reads: about a day at Arc's ~2 blocks a second.
+ *
+ * The full walk from the deployment block is now thousands of requests (Arc cut its log span
+ * to 5,000 blocks), which is minutes on a first load. With the service running the full
+ * history comes from its index instead; without it, this reads a bounded recent window and the
+ * result is marked `partialFrom` so every page says it is incomplete. A shortened log is only
+ * acceptable when it says so.
+ */
+const FALLBACK_HISTORY_BLOCKS = 200_000n;
+
 /** Walks the contract's history in windows, with bounded concurrency. */
-async function readAllLogs(head: bigint) {
+async function readAllLogs(head: bigint, maxHistory: bigint = head) {
   await hydrate();
 
   const deployed = BigInt(process.env.POLICY_ENGINE_DEPLOY_BLOCK ?? POLICY_ENGINE_DEPLOY_BLOCK);
@@ -115,7 +126,7 @@ async function readAllLogs(head: bigint) {
    * This grows with chain age. When it stops being reasonable, the answer is the indexer in
    * plan §2.3 — not a horizon that discards history.
    */
-  const windows = planWindows(deployed, head, head);
+  const windows = planWindows(deployed, head, maxHistory);
 
   const CONCURRENCY = 3;
   const out: DecodedLogs = [];
@@ -211,8 +222,10 @@ export async function readAuditLog(owner: Address): Promise<AuditLog> {
     const tip = projectAuditLog(tipLogs as unknown as EngineLog[], owner);
     audit = auditFromActivity([...indexed.entries, ...tip.entries]);
   } else {
-    const all = await readAllLogs(head);
+    const all = await readAllLogs(head, FALLBACK_HISTORY_BLOCKS);
     audit = projectAuditLog(all as unknown as EngineLog[], owner);
+    const deployed = BigInt(process.env.POLICY_ENGINE_DEPLOY_BLOCK ?? POLICY_ENGINE_DEPLOY_BLOCK);
+    if (head - FALLBACK_HISTORY_BLOCKS > deployed) audit.partialFrom = head - FALLBACK_HISTORY_BLOCKS;
   }
 
   // Timestamps for the visible window only — one RPC call per block is not free. A block's

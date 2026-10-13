@@ -1,7 +1,7 @@
 import {Suspense} from "react";
 import {FilterChips, parseFilter, type FilterId} from "../../components/FilterChips.tsx";
 import {Feed} from "../../components/Feed.tsx";
-import {ChainUnreachable, NotConfigured, PageHead} from "../../components/PageHead.tsx";
+import {ChainUnreachable, NotConfigured, PageHead, PartialHistory} from "../../components/PageHead.tsx";
 import {SkeletonFeed} from "../../components/Skeleton.tsx";
 import {owner, tryAudit} from "../../lib/data.ts";
 import {isConfigured} from "../../lib/chain.ts";
@@ -25,6 +25,7 @@ async function FullLog({filter}: {filter: FilterId}) {
   };
   return (
     <>
+      <PartialHistory from={read.value.partialFrom} />
       <FilterChips active={filter} counts={counts} />
       <Feed entries={all.filter((e) => matches(e.kind, filter))} limit={200} />
     </>

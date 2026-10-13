@@ -285,3 +285,32 @@ describe("transport behaviour", () => {
     assert.equal((await get("/health")).status, 200);
   });
 });
+
+describe("the change stream", () => {
+  it("delivers a changed event to a connected client", async () => {
+    const {Broadcaster} = await import("../src/api.ts");
+    const changes = new Broadcaster();
+    const streamServer = createApi({store: new Store(openMemoryDb()), owner: OWNER, engine: ENGINE, changes});
+    await new Promise<void>((resolve) => streamServer.listen(0, resolve));
+    const url = `http://127.0.0.1:${(streamServer.address() as AddressInfo).port}/stream`;
+
+    const controller = new AbortController();
+    const response = await fetch(url, {signal: controller.signal});
+    assert.equal(response.headers.get("content-type"), "text/event-stream");
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder();
+
+    // Wait until the subscription exists before publishing.
+    while (changes.size === 0) await new Promise((r) => setTimeout(r, 5));
+    changes.publish({block: 123n, events: 1});
+
+    let text = "";
+    while (!text.includes("event: changed")) text += decoder.decode((await reader.read()).value);
+    assert.match(text, /data: \{"block":"123","events":1\}/);
+
+    controller.abort();
+    await new Promise((r) => setTimeout(r, 20));
+    assert.equal(changes.size, 0, "closing the stream unsubscribes");
+    streamServer.close();
+  });
+});

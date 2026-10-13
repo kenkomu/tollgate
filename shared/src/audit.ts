@@ -77,6 +77,12 @@ export interface AuditLog {
   /** Allowlisted payees, folded up from PayeeSet events. */
   allowedPayees: Address[];
   paused: boolean;
+  /**
+   * Set when only recent history was read (the service was unavailable and a full chain walk
+   * would take minutes). Everything folded from history, the allowlist above included, is then
+   * only what changed since this block, and callers must say so rather than present it as whole.
+   */
+  partialFrom?: bigint | undefined;
 }
 
 /** The subset of a decoded log this projection reads. */

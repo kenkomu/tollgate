@@ -26,3 +26,25 @@ describe("readLogsSplitting", () => {
     await assert.rejects(readLogsSplitting(read, 0n, 1_000n, 250n), /endpoint down/);
   });
 });
+
+describe("rate limits", () => {
+  it("waits and retries the same range instead of splitting it", async () => {
+    const calls: Array<[bigint, bigint]> = [];
+    let failures = 2;
+    const read = async (from: bigint, to: bigint) => {
+      calls.push([from, to]);
+      if (failures-- > 0) throw new Error("Request exceeds defined limit.");
+      return [from];
+    };
+    const out = await readLogsSplitting(read, 0n, 4_999n, {backoffMs: 1});
+    assert.deepEqual(calls, [[0n, 4_999n], [0n, 4_999n], [0n, 4_999n]]);
+    assert.deepEqual(out, [0n]);
+  });
+
+  it("gives up after the retry budget with the rate-limit error", async () => {
+    const read = async () => {
+      throw new Error("rate limit exceeded (-32005)");
+    };
+    await assert.rejects(readLogsSplitting(read, 0n, 4_999n, {backoffMs: 1, rateLimitRetries: 2}), /rate limit/);
+  });
+});

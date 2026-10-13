@@ -105,7 +105,8 @@ export async function SetupGuide({owner, budgetCap}: {owner: Address; budgetCap:
   ]);
 
   const allowanceOk = allowance !== null && allowance >= budgetCap && budgetCap > 0n;
-  const payeesKnown = audit.ok;
+  // Partial history can miss an old approval, so it does not count as knowing.
+  const payeesKnown = audit.ok && audit.value.partialFrom === undefined;
   const hasPayee = audit.ok && audit.value.allowedPayees.length > 0;
 
   // Unknown is not "done" and not "missing": if the log walk failed, say nothing rather

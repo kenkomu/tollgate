@@ -1,6 +1,6 @@
 import {Suspense} from "react";
 import {ApprovalQueue} from "../../components/ApprovalQueue.tsx";
-import {ChainUnreachable, NotConfigured, PageHead} from "../../components/PageHead.tsx";
+import {ChainUnreachable, NotConfigured, PageHead, PartialHistory} from "../../components/PageHead.tsx";
 import {PayeeRow} from "../../components/PayeeRow.tsx";
 import {AddPayeeEditor} from "../../components/PolicyEditors.tsx";
 import {owner, pendingApprovals, tryAudit} from "../../lib/data.ts";
@@ -14,17 +14,24 @@ async function Allowlist() {
   // The first means the agent can pay nobody; the second means we do not know who it can pay.
   if (!read.ok) return <ChainUnreachable detail={read.error} />;
   const audit = read.value;
+  const partial = audit.partialFrom !== undefined;
 
   return (
+    <>
+    <PartialHistory from={audit.partialFrom} />
     <section className="card">
-      <h2 className="card-title">Allowlist</h2>
+      <h2 className="card-title">{partial ? "Allowlist (recent changes only)" : "Allowlist"}</h2>
       <p className="card-note">
         The complete set of addresses your agent may pay. Anything not on this list is
         refused by the contract, whatever the agent believes.
       </p>
 
       {audit.allowedPayees.length === 0 ? (
-        <div className="empty">No payees approved. The agent cannot pay anyone.</div>
+        <div className="empty">
+          {partial
+            ? "No payees were approved in the recent history read. Older approvals may exist; start the service to see them."
+            : "No payees approved. The agent cannot pay anyone."}
+        </div>
       ) : (
         <div className="rows">
           {audit.allowedPayees.map((payee) => (
@@ -33,6 +40,7 @@ async function Allowlist() {
         </div>
       )}
     </section>
+    </>
   );
 }
 
