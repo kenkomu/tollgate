@@ -26,8 +26,8 @@ inventory. Both were reconciled against the source tree on 2026-08-09.
 
 ### Capability
 
-- [x] **Multiple agents per owner.** Done in v2 (ADR 0010): per-agent policies and allowlists, an owner-wide pause, fleet views on web and phone. One policy per owner today (ADR 0004). A real operator
-      runs a fleet, each with its own leash.
+- [x] **Multiple agents per owner.** Done in v2 (ADR 0010): per-agent policies and allowlists, an owner-wide pause, fleet views on web and phone. Supersedes
+      ADR 0004's one policy per owner.
 - [ ] **Per-payee sub-budgets.** "At most $50/month to this supplier" — currently the
       allowlist is binary.
 - [ ] **Category limits.** Group payees and cap the group.
