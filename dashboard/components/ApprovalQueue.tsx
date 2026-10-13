@@ -1,12 +1,6 @@
-"use client";
-
-import {useState, useTransition} from "react";
-import {useRouter} from "next/navigation";
-import type {Address} from "viem";
 import type {ApprovalRequest} from "../lib/approvals.ts";
-import {approvePayee, declineRequest} from "../lib/owner.ts";
-import {shortAddress, txUrl} from "../lib/chain.ts";
-import {ExternalIcon, HandIcon} from "./Icon.tsx";
+import {ApprovalCard} from "./ApprovalCard.tsx";
+import {HandIcon} from "./Icon.tsx";
 
 /**
  * Payee approvals — the human in the loop.
@@ -15,41 +9,10 @@ import {ExternalIcon, HandIcon} from "./Icon.tsx";
  * agent its ability to pay anyone new. This is where that cost gets paid: the agent asks,
  * the owner decides, and the leash lengthens one link at a time.
  *
- * Approving writes `setPayee` on chain. Until that transaction lands, the agent stays
- * refused — nothing in this queue grants anything by itself.
+ * Each request is an `ApprovalCard`, the same one a notification opens and a chat host
+ * renders, with its own signing state, so approving one request never greys out another.
  */
 export function ApprovalQueue({requests}: {requests: ApprovalRequest[]}) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  const [busy, setBusy] = useState<string | null>(null);
-  const [hash, setHash] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  function approve(payee: Address) {
-    setError(null);
-    setHash(null);
-    setBusy(payee);
-    startTransition(async () => {
-      const result = await approvePayee(payee);
-      if (result.ok) {
-        setHash(result.hash ?? null);
-        router.refresh();
-      } else {
-        setError(result.error ?? "Failed");
-      }
-      setBusy(null);
-    });
-  }
-
-  function decline(payee: Address) {
-    setBusy(payee);
-    startTransition(async () => {
-      await declineRequest(payee);
-      router.refresh();
-      setBusy(null);
-    });
-  }
-
   return (
     <section className="card">
       <h2 className="card-title">
@@ -68,48 +31,22 @@ export function ApprovalQueue({requests}: {requests: ApprovalRequest[]}) {
       {requests.length === 0 ? (
         <div className="empty">Nothing waiting on you.</div>
       ) : (
-        requests.map((request) => (
-          <div className="approval" key={request.id}>
-            <div className="feed-top">
-              <span className="feed-what">{request.serviceName}</span>
-              <span className="feed-amount">{request.amount}</span>
-            </div>
-            <div className="feed-sub">
-              <span className="mono-addr">{shortAddress(request.payee)}</span>
-              <span>·</span>
-              {/* The owner should see this in their own timezone, which the server cannot
-                  know — so the two renders legitimately differ and React is told to expect
-                  it. The instant is identical either way. */}
-              <span suppressHydrationWarning>
-                {new Date(request.requestedAt).toLocaleString()}
-              </span>
-            </div>
-            <p className="approval-why">{request.why}</p>
-            <div className="actions">
-              <button
-                type="button"
-                className="primary"
-                onClick={() => approve(request.payee)}
-                disabled={pending && busy === request.payee}
-              >
-                {pending && busy === request.payee ? "Signing…" : "Approve payee"}
-              </button>
-              <button type="button" onClick={() => decline(request.payee)} disabled={pending}>
-                Decline
-              </button>
-            </div>
-          </div>
-        ))
-      )}
-
-      {hash ? (
-        <div style={{marginTop: 12, fontSize: 12.5}}>
-          <a href={txUrl(hash)} target="_blank" rel="noreferrer" style={{color: "var(--muted)"}}>
-            Payee added on chain <ExternalIcon size={11} />
-          </a>
+        <div className="approval-list">
+          {requests.map((request) => (
+            <ApprovalCard
+              key={request.id}
+              request={{
+                requestId: request.id,
+                payee: request.payee,
+                amount: request.amount,
+                why: request.why,
+                serviceName: request.serviceName,
+                requestedAt: request.requestedAt,
+              }}
+            />
+          ))}
         </div>
-      ) : null}
-      {error ? <div className="error">{error}</div> : null}
+      )}
     </section>
   );
 }

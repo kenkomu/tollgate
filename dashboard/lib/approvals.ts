@@ -69,6 +69,31 @@ async function writeAll(requests: ApprovalRequest[]): Promise<void> {
   await writeFile(STORE, JSON.stringify(requests, null, 2));
 }
 
+/** A request and, once the owner has answered it, how. */
+export interface ApprovalRecord extends ApprovalRequest {
+  resolvedAt: number | null;
+  outcome: "approved" | "declined" | null;
+}
+
+/**
+ * One request by id, open or answered. What a notification links to: the owner may tap it
+ * after deciding somewhere else, and should see that rather than a missing page.
+ */
+export async function getRequest(id: string): Promise<ApprovalRecord | null> {
+  try {
+    const response = await fetch(`${SERVICE_URL}/approvals/${encodeURIComponent(id)}`, {
+      signal: AbortSignal.timeout(3_000),
+      cache: "no-store",
+    });
+    if (response.ok) return (await response.json()) as ApprovalRecord;
+    if (response.status === 404) return null;
+  } catch {
+    // Not running; the local file may still have it.
+  }
+  const local = (await fromDisk()).find((r) => r.id === id);
+  return local ? {...local, resolvedAt: null, outcome: null} : null;
+}
+
 export async function listPending(): Promise<ApprovalRequest[]> {
   return (await fromService()) ?? (await fromDisk());
 }

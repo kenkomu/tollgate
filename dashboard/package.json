@@ -13,6 +13,7 @@
     "check:ui": "node e2e/check.ts"
   },
   "dependencies": {
+    "@tollgate/sdk": "workspace:*",
     "@tollgate/shared": "workspace:*",
     "next": "16.3.0",
     "react": "19.2.8",

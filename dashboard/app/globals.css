@@ -638,6 +638,113 @@ button.danger {
   margin: 6px 0 12px;
 }
 
+/* The approval card: one request, everything needed to decide it, nothing else. */
+.approval-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.approval-card {
+  margin-bottom: 0;
+}
+
+.approval-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.approval-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.approval-amount {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.approval-title {
+  font-size: 16px;
+  margin: 6px 0 0;
+  color: var(--ink);
+}
+
+.approval-card .approval-why {
+  font-size: 14px;
+}
+
+.approval-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0 0 12px;
+  font-size: 12.5px;
+}
+
+.approval-facts dt {
+  color: var(--muted);
+}
+
+.approval-facts dd {
+  margin: 0;
+  min-width: 0;
+  color: var(--ink-2);
+}
+
+/* A full address on a phone has to wrap, or the card scrolls sideways. */
+.approval-facts .mono-addr {
+  overflow-wrap: anywhere;
+  color: var(--ink-2);
+}
+
+.approval-terms {
+  font-size: 12px;
+  color: var(--ink-2);
+  margin: 0 0 12px;
+}
+
+.approval-card .actions button {
+  min-height: 44px;
+}
+
+.approval-card.settled {
+  border-color: var(--hair);
+  background: transparent;
+}
+
+.approval-result {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.approval-result a {
+  color: var(--muted);
+}
+
+.approval-page {
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
 .empty {
   color: var(--muted);
   font-size: 13px;

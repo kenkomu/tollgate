@@ -41,6 +41,14 @@ have them sign `setPayee` in their own wallet, then resolve `{decision: "approve
 then reads the on-chain allowlist and reports what the chain says, not what the card said.
 With no display it falls back to the inbox below.
 
+A reference renderer exists: `dashboard/components/ApprovalCard.tsx` takes the slot data
+(`ApprovalCardData`) as `request` and your resolver as `onDecide`. It does the wallet signing
+and only answers "approved" once `setPayee` has landed.
+
+```tsx
+<ApprovalCard request={slot.input} onDecide={slot.resolve} />
+```
+
 The Glove shapes follow Glove's public docs and have not been run against a live Glove install.
 
 ## Vercel AI SDK

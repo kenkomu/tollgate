@@ -31,6 +31,7 @@ export function chainModule() {
     OWNER,
     ENGINE,
     txUrl: (hash: string) => `https://explorer.test/tx/${hash}`,
+    addressUrl: (address: string) => `https://explorer.test/address/${address}`,
     shortAddress: (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`,
   };
 }
