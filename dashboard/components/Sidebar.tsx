@@ -21,7 +21,7 @@ const LINKS = [
   {href: "/activity", label: "Activity", Icon: ActivityIcon},
   {href: "/payees", label: "Payees", Icon: PayeeIcon},
   {href: "/policy", label: "Policy", Icon: PolicyIcon},
-  {href: "/welcome", label: "How it works", Icon: ShieldIcon},
+  {href: "/welcome", label: "About", Icon: ShieldIcon},
 ] as const;
 
 export function Sidebar() {
@@ -31,7 +31,9 @@ export function Sidebar() {
     <nav className="rail" aria-label="Sections">
       <div className="rail-top">
         <NetworkPill />
-        <p className="wordmark">Tollgate</p>
+        <p className="wordmark">
+          Tollgate<span className="wordmark-dot">.</span>
+        </p>
       </div>
 
       <ul className="rail-links">

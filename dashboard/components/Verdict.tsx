@@ -24,29 +24,29 @@ export function Verdict({policy}: {policy: Policy}) {
 
   return (
     <section className={`verdict${stopped ? " stopped" : ""}`}>
-      <div className="verdict-state">
+      <div className="verdict-main">
         <span className="verdict-badge">
           {stopped ? <StopIcon size={15} /> : <ShieldIcon size={15} />}
           {stopped ? "Stopped" : "Enforcing"}
         </span>
+        <p className="verdict-hero num">{stopped ? "$0.00 can move" : `${formatUsdc(remaining)} left to spend`}</p>
         <p className="verdict-line">
           {stopped
-            ? "Every payment is being refused at the contract. Nothing can move until you resume."
-            : "Every payment is checked against your policy on chain before it moves. The agent cannot change any of it."}
+            ? "Every payment is refused at the contract until you resume."
+            : `of ${formatUsdc(policy.budgetCap)} in total. Checked on chain before any money moves, and the agent can't change it.`}
         </p>
       </div>
+      <span className="verdict-orb" aria-hidden="true">
+        {stopped ? <StopIcon size={30} /> : <ShieldIcon size={30} />}
+      </span>
 
       <dl className="verdict-stats">
         <div>
-          <dt>moved</dt>
+          <dt>moved so far</dt>
           <dd className="num">{formatUsdc(policy.spent)}</dd>
         </div>
         <div>
-          <dt>still allowed</dt>
-          <dd className="num">{formatUsdc(remaining)}</dd>
-        </div>
-        <div>
-          <dt>ceiling per payment</dt>
+          <dt>max per payment</dt>
           <dd className="num">{formatUsdc(policy.perTxCap)}</dd>
         </div>
       </dl>

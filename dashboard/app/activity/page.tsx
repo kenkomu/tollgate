@@ -1,4 +1,5 @@
 import {Suspense} from "react";
+import {FilterChips, parseFilter, type FilterId} from "../../components/FilterChips.tsx";
 import {Feed} from "../../components/Feed.tsx";
 import {ChainUnreachable, NotConfigured, PageHead} from "../../components/PageHead.tsx";
 import {SkeletonFeed} from "../../components/Skeleton.tsx";
@@ -7,16 +8,35 @@ import {isConfigured} from "../../lib/chain.ts";
 
 export const dynamic = "force-dynamic";
 
-async function FullLog() {
+async function FullLog({filter}: {filter: FilterId}) {
   const read = await tryAudit(owner);
   // An audit log that silently renders empty when the read failed is worse than no page at
   // all: "nothing happened" and "we could not find out" look identical, and only one of them
   // is a reason to relax.
   if (!read.ok) return <ChainUnreachable detail={read.error} />;
-  return <Feed entries={read.value.entries} limit={200} />;
+  const all = read.value.entries;
+  const matches = (kind: string, f: FilterId) =>
+    f === "all" ? true : f === "paid" ? kind === "paid" : f === "refused" ? kind === "refused" : kind !== "paid" && kind !== "refused";
+  const counts = {
+    all: all.length,
+    paid: all.filter((e) => matches(e.kind, "paid")).length,
+    refused: all.filter((e) => matches(e.kind, "refused")).length,
+    changes: all.filter((e) => matches(e.kind, "changes")).length,
+  };
+  return (
+    <>
+      <FilterChips active={filter} counts={counts} />
+      <Feed entries={all.filter((e) => matches(e.kind, filter))} limit={200} />
+    </>
+  );
 }
 
-export default function ActivityPage() {
+export default async function ActivityPage({
+  searchParams,
+}: {
+  searchParams: Promise<{[key: string]: string | string[] | undefined}>;
+}) {
+  const filter = parseFilter((await searchParams).filter);
   if (!isConfigured()) {
     return (
       <>
@@ -42,7 +62,7 @@ export default function ActivityPage() {
         </p>
       </section>
       <Suspense fallback={<SkeletonFeed />}>
-        <FullLog />
+        <FullLog filter={filter} />
       </Suspense>
     </>
   );

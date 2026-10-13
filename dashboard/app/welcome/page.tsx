@@ -15,6 +15,17 @@ export default function Welcome() {
   return (
     <>
       <section className="hero">
+        <svg className="hero-art" viewBox="0 0 360 200" role="img" aria-label="A toll barrier that lets an approved payment through and stops an unapproved one">
+          <rect x="8" y="150" width="344" height="10" rx="5" fill="var(--surface-2)" />
+          <rect x="40" y="70" width="26" height="90" rx="8" fill="var(--surface-2)" stroke="var(--hair)" />
+          <rect x="66" y="84" width="170" height="14" rx="7" fill="var(--accent)" />
+          <circle cx="53" cy="56" r="14" fill="var(--accent)" />
+          <path d="M53 49l7 3v5c0 4-3 7-7 8-4-1-7-4-7-8v-5z" fill="var(--ground)" />
+          <circle cx="285" cy="128" r="22" fill="var(--accent)" />
+          <text x="285" y="135" textAnchor="middle" fontSize="20" fontWeight="800" fill="var(--ground)">$</text>
+          <circle cx="330" cy="104" r="16" fill="var(--surface-2)" stroke="var(--stop)" strokeWidth="2" />
+          <path d="M323 97l14 14M337 97l-14 14" stroke="var(--stop)" strokeWidth="2.5" strokeLinecap="round" />
+        </svg>
         <h1>Give an AI agent a wallet it can&rsquo;t overspend.</h1>
         <p>
           Tollgate puts the spending limits in a smart contract on Arc, not in the agent. Even if
