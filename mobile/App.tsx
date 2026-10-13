@@ -22,7 +22,9 @@ import {
   ActivityRow,
   Button,
   Card,
+  Chips,
   Freshness,
+  Hero,
   Meter,
   Note,
   Offline,
@@ -40,7 +42,7 @@ import {
   type Approval,
   type Health,
 } from "./src/api.ts";
-import {mono, shortAddress, useTheme} from "./src/theme.ts";
+import {mono, radius, shortAddress, useTheme} from "./src/theme.ts";
 
 /**
  * Tollgate, in a pocket.
@@ -179,8 +181,10 @@ export default function App() {
     <SafeAreaView style={[styles.safe, {backgroundColor: t.bg}]}>
       <StatusBar barStyle="default" />
 
-      <View style={[styles.header, {borderColor: t.line}]}>
-        <Text style={[styles.brand, {color: t.text}]}>Tollgate</Text>
+      <View style={styles.header}>
+        <Text style={[styles.brand, {color: t.text}]}>
+          Tollgate<Text style={{color: t.accent}}>.</Text>
+        </Text>
         {policy ? (
           <View style={[styles.chip, {backgroundColor: policy.paused ? t.stopSoft : t.okSoft}]}>
             <Text style={{color: policy.paused ? t.stop : t.ok, fontSize: 11.5, fontWeight: "600"}}>
@@ -240,7 +244,8 @@ export default function App() {
         )}
       </ScrollView>
 
-      <View style={[styles.tabs, {borderColor: t.line, backgroundColor: t.surface}]}>
+      {/* Floating pill nav in the accent colour, as in Chukua. */}
+      <View style={[styles.tabs, {backgroundColor: t.accent}]} accessibilityRole="tablist">
         {(
           [
             ["now", "Now"],
@@ -248,8 +253,21 @@ export default function App() {
             ["activity", "Activity"],
           ] as const
         ).map(([id, label]) => (
-          <Pressable key={id} onPress={() => setTab(id)} style={styles.tab}>
-            <Text style={{color: tab === id ? t.accent : t.muted, fontSize: 13, fontWeight: "600"}}>
+          <Pressable
+            key={id}
+            onPress={() => setTab(id)}
+            style={styles.tab}
+            accessibilityRole="tab"
+            accessibilityState={{selected: tab === id}}
+          >
+            <Text
+              style={{
+                color: t.onAccent,
+                opacity: tab === id ? 1 : 0.7,
+                fontSize: 14,
+                fontWeight: tab === id ? "800" : "600",
+              }}
+            >
               {label}
             </Text>
           </Pressable>
@@ -318,6 +336,20 @@ function NowScreen({
 
   return (
     <>
+      <Hero
+        stopped={policy.paused}
+        badge={policy.paused ? "Stopped" : "Enforcing"}
+        headline={policy.paused ? "$0.00 can move" : `${formatUsdc(policy.budgetCap - policy.spent)} left`}
+        line={
+          policy.paused
+            ? "Every payment is refused at the contract until you resume."
+            : `of ${formatUsdc(policy.budgetCap)} in total, checked on chain before any money moves.`
+        }
+        stats={[
+          {label: "moved so far", value: formatUsdc(policy.spent)},
+          {label: "max per payment", value: formatUsdc(policy.perTxCap)},
+        ]}
+      />
       <KillSwitch paused={policy.paused} onDone={onRefresh} />
       <PushStatus state={push} />
 
@@ -475,6 +507,7 @@ function ActivityScreen({
   down: boolean;
   loaded: boolean;
 }) {
+  const [filter, setFilter] = useState<"all" | "paid" | "refused" | "changes">("all");
   if (!loaded && !down) return <Checking what="the audit log" />;
 
   if (down) {
@@ -501,14 +534,39 @@ function ActivityScreen({
     );
   }
 
+  const counts = {
+    all: entries.length,
+    paid: entries.filter((e) => e.kind === "paid").length,
+    refused: entries.filter((e) => e.kind === "refused").length,
+    changes: entries.filter((e) => e.kind !== "paid" && e.kind !== "refused").length,
+  };
+  const shown = entries.filter(
+    (e) =>
+      filter === "all" ||
+      (filter === "paid" ? e.kind === "paid" : filter === "refused" ? e.kind === "refused" : e.kind !== "paid" && e.kind !== "refused"),
+  );
+
   return (
-    <Card>
-      <Title>Everything that happened</Title>
-      <Note>Rebuilt from contract events. Every row is on chain.</Note>
-      {entries.map((entry) => (
-        <ActivityRow key={entry.key} entry={entry} />
-      ))}
-    </Card>
+    <>
+      <Chips
+        value={filter}
+        onChange={setFilter}
+        options={[
+          {id: "all", label: "All", count: counts.all},
+          {id: "paid", label: "Payments", count: counts.paid},
+          {id: "refused", label: "Refused", count: counts.refused},
+          {id: "changes", label: "Changes", count: counts.changes},
+        ]}
+      />
+      <Card>
+        <Title>Everything that happened</Title>
+        <Note>Rebuilt from contract events. Every row is on chain.</Note>
+        {shown.length === 0 ? <Note>Nothing in this view.</Note> : null}
+        {shown.map((entry) => (
+          <ActivityRow key={entry.key} entry={entry} />
+        ))}
+      </Card>
+    </>
   );
 }
 
@@ -518,15 +576,28 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 8,
   },
-  brand: {fontSize: 17, fontWeight: "700", letterSpacing: -0.2},
-  chip: {paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20},
-  scroll: {padding: 16, paddingBottom: 32},
-  tabs: {flexDirection: "row", borderTopWidth: StyleSheet.hairlineWidth},
-  tab: {flex: 1, alignItems: "center", paddingVertical: 14},
+  brand: {fontSize: 26, fontWeight: "800", letterSpacing: -0.8},
+  chip: {paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.pill},
+  scroll: {padding: 16, paddingBottom: 120},
+  tabs: {
+    position: "absolute",
+    left: 12,
+    right: 12,
+    bottom: 16,
+    flexDirection: "row",
+    padding: 4,
+    borderRadius: radius.pill,
+    shadowColor: "#000",
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    shadowOffset: {width: 0, height: 8},
+    elevation: 8,
+  },
+  tab: {flex: 1, alignItems: "center", justifyContent: "center", minHeight: 48, borderRadius: radius.pill},
   kv: {
     flexDirection: "row",
     justifyContent: "space-between",
