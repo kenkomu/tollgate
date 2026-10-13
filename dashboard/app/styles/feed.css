@@ -1,0 +1,99 @@
+/* ---------- feed ---------- */
+
+.feed {
+  display: flex;
+  flex-direction: column;
+  max-height: 540px;
+  overflow-y: auto;
+}
+
+.feed-row {
+  display: grid;
+  grid-template-columns: 3px 1fr;
+  border-bottom: 1px solid var(--hair);
+}
+
+.feed-row:last-child {
+  border-bottom: 0;
+}
+
+.feed-stripe {
+  background: var(--ok);
+}
+
+.feed-row.stopped .feed-stripe {
+  background: var(--stop);
+}
+
+.feed-row.neutral .feed-stripe {
+  background: var(--muted);
+}
+
+.feed-body {
+  padding: 11px 0 11px 14px;
+}
+
+.feed-top {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.feed-what {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.feed-row .feed-what svg {
+  color: var(--ok);
+}
+
+.feed-row.stopped .feed-what svg {
+  color: var(--stop);
+}
+
+.feed-row.neutral .feed-what svg {
+  color: var(--muted);
+}
+
+.feed-amount {
+  margin-left: auto;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* The refusal reason. Given its own line rather than squeezed into the metadata row —
+   it is the most important thing on a blocked row, not an attribute of it. */
+.feed-reason {
+  margin: 3px 0 0;
+  font-size: 12.5px;
+  color: var(--stop);
+}
+
+.feed-sub {
+  color: var(--muted);
+  font-size: 12.5px;
+  margin-top: 2px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.feed-sub a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.feed-sub a:hover {
+  color: var(--accent);
+}
+
+.mono-addr {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}

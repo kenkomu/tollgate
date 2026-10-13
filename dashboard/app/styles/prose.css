@@ -1,0 +1,26 @@
+/* ---------- prose ---------- */
+
+.prose {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--ink-2);
+  max-width: 74ch;
+}
+
+.note-card {
+  margin-bottom: 18px;
+  border-left: 2px solid var(--accent);
+}
+
+.card-more {
+  margin: 14px 0 0;
+  font-size: 12.5px;
+}
+
+.card-more a,
+.card-note a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

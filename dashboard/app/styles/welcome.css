@@ -1,0 +1,109 @@
+/* The welcome page: hero, three steps, comparison table. */
+
+.hero {
+  padding: 28px 0 8px;
+}
+
+.hero h1 {
+  margin: 0 0 12px;
+  font-family: var(--font-display);
+  font-size: clamp(28px, 5vw, 44px);
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  max-width: 20ch;
+}
+
+.hero p {
+  margin: 0 0 18px;
+  max-width: 60ch;
+  font-size: 15.5px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.hero-actions a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.hero-actions a.primary-link {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #1a1306;
+  font-weight: 600;
+}
+
+.steps-3 {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  margin: 18px 0;
+}
+
+.steps-3 .card h3 {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+
+.steps-3 .card p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.step-num {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.compare {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.compare th,
+.compare td {
+  padding: 9px 10px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line);
+}
+
+.compare th {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+@media (max-width: 620px) {
+  .compare thead {
+    display: none;
+  }
+  .compare tr {
+    display: block;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .compare td {
+    display: block;
+    border: 0;
+    padding: 3px 0;
+  }
+  .compare td::before {
+    content: attr(data-label) ": ";
+    color: var(--muted);
+  }
+}

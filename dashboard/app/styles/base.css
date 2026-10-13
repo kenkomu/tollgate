@@ -1,0 +1,48 @@
+/*
+ * Tollgate design system.
+ *
+ * From plan §5.4: premium charcoal base, one confident accent, red reserved strictly for
+ * blocked and kill, tabular numerals, restrained motion. Trust is a visual property — a
+ * page that moves a lot, or shouts in three colours, does not read as somewhere you would
+ * leave money.
+ *
+ * The rule that matters: red means "this was stopped". It appears nowhere else. If red is
+ * on screen, something was refused or the owner pulled the switch.
+ */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+}
+
+/* Every digit that could sit in a column does. */
+.num,
+.meter-value,
+.feed-amount {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
+.wrap {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 24px 96px;
+}

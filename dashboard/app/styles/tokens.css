@@ -1,0 +1,69 @@
+/*
+ * Design tokens: the only place a colour, radius or font is chosen.
+ *
+ * Dark is the default; light follows the system setting. The palette is Chukua's: one
+ * vivid accent (lime on near-black, deep green on white), big soft corners, no shadows.
+ * Red (--stop) is reserved for refusals and the kill switch and appears nowhere else.
+ * Amber (--warn) is the only warning colour, so a warning never borrows the brand accent.
+ *
+ * Every foreground is measured against the surface it actually sits on; `pnpm check:ui`
+ * runs axe on every route in both schemes and fails on a contrast miss.
+ */
+
+:root {
+  --ground: #111111;
+  --surface: #000000;
+  --surface-2: #1a1a1a;
+  --hair: #232323;
+  --ink: #fbfbfb;
+  --ink-2: #c8c8c8;
+  --muted: #8c8c8c;
+
+  --accent: #d7fc70;
+  --accent-soft: #1d2410;
+  /* Chart marks. Kept as their own token so the series can diverge from the UI accent. */
+  --series: #d7fc70;
+  --ok: #5fd28a;
+  --ok-soft: #10231a;
+  --warn: #ffc62a;
+  --warn-soft: #2a2208;
+
+  /* Reserved. Blocked and kill only. Lifted from #ce5f57, which measured 4.43:1 on the
+     card surface: under AA, on the one colour that must never be missed. */
+  --stop: #d66b62;
+  --stop-soft: #2a1413;
+
+  --radius: 22px;
+  --radius-sm: 14px;
+  --shadow: none;
+
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: var(--font-body);
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+
+  /* Older rules reference these two names. */
+  --line: var(--hair);
+  --text: var(--ink);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --ground: #ffffff;
+    --surface: #f4f6f3;
+    --surface-2: #ebeeea;
+    --hair: #e1e5df;
+    --ink: #111411;
+    --ink-2: #3a3f39;
+    --muted: #5f655e;
+    --accent: #117a43;
+    --accent-soft: #e3f1ea;
+    --series: #117a43;
+    --ok: #117a43;
+    --ok-soft: #e3f1ea;
+    --warn: #8a5f00;
+    --warn-soft: #fff3cf;
+    --stop: #9c332c;
+    --stop-soft: #fbe6e3;
+    --shadow: none;
+  }
+}

@@ -1,0 +1,43 @@
+/* ---------- rules table ---------- */
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table.rules {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 520px;
+}
+
+table.rules th,
+table.rules td {
+  text-align: left;
+  padding: 11px 14px 11px 0;
+  border-bottom: 1px solid var(--hair);
+  vertical-align: top;
+}
+
+table.rules thead th {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+table.rules tbody th {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+table.rules tbody tr:last-child th,
+table.rules tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.muted-cell {
+  color: var(--muted);
+}

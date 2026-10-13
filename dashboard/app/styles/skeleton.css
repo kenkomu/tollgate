@@ -1,0 +1,15 @@
+/* ---------- loading placeholders ---------- */
+
+.shimmer {
+  display: block;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--hair) 50%, var(--surface-2) 75%);
+  background-size: 200% 100%;
+  animation: sweep 1.8s ease-in-out infinite;
+}
+
+@keyframes sweep {
+  to {
+    background-position: -200% 0;
+  }
+}

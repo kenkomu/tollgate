@@ -1,0 +1,89 @@
+/* ---------- small screens ---------- */
+
+@media (max-width: 620px) {
+  body {
+    font-size: 14.5px;
+  }
+
+  .wrap,
+  .content {
+    padding: 20px 16px 64px;
+  }
+
+  .page-head {
+    align-items: flex-start;
+  }
+
+  .page-meta {
+    grid-template-columns: auto auto;
+  }
+
+  .wordmark {
+    font-size: 23px;
+  }
+
+  .tile-value {
+    font-size: 22px;
+  }
+
+  .verdict {
+    padding: 18px;
+    gap: 18px;
+  }
+
+  /* Two up rather than one long column — three money figures stacked reads as a form. */
+  .verdict-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px 20px;
+    width: 100%;
+  }
+
+  .verdict-stats dd {
+    font-size: 18px;
+  }
+
+  section.card {
+    padding: 18px 16px;
+  }
+
+  /* Labels above values: an address plus its label will not share 320px of width. */
+  dl.facts {
+    grid-template-columns: 1fr;
+  }
+
+  dl.facts dt {
+    padding: 10px 0 0;
+    border-bottom: 0;
+  }
+
+  dl.facts dd {
+    text-align: left;
+    padding: 2px 0 10px;
+  }
+
+  dl.facts > :nth-last-child(-n + 2) {
+    border-bottom: 0;
+  }
+
+  .feed {
+    max-height: none;
+  }
+
+  .actions button {
+    flex: 1 1 auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  section.card,
+  .verdict,
+  .live-dot,
+  .shimmer {
+    animation: none;
+  }
+
+  .shimmer {
+    background: var(--surface-2);
+  }
+}

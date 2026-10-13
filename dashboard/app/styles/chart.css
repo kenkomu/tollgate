@@ -1,0 +1,123 @@
+/* ---------- chart ---------- */
+
+.chart-wrap {
+  position: relative;
+  margin-top: 4px;
+}
+
+.chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.chart-grid,
+.chart-axis {
+  stroke: var(--hair);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart-axis {
+  stroke: var(--muted);
+  opacity: 0.5;
+}
+
+/* Dashed because it is a threshold. The solid hairlines above are the grid, and keeping
+   the two distinct is what lets the dash carry meaning. */
+.chart-cap {
+  stroke: var(--stop);
+  stroke-width: 1;
+  stroke-dasharray: 5 4;
+  opacity: 0.75;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart-line {
+  fill: none;
+  stroke: var(--series);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart-area {
+  fill: var(--series);
+  opacity: 0.1;
+  stroke: none;
+}
+
+.chart-dot {
+  fill: var(--series);
+  /* A ring in the surface colour, not a border, so overlapping marks stay separable. */
+  stroke: var(--surface);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  transition: r 120ms ease;
+}
+
+.chart-crosshair {
+  stroke: var(--muted);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart-cap-label,
+.chart-end-label {
+  position: absolute;
+  right: 0;
+  /* `top` is set inline from the plot geometry; this centres the text on that line. */
+  transform: translateY(-50%);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  background: var(--surface);
+  padding-left: 6px;
+}
+
+.chart-cap-label {
+  color: var(--stop);
+}
+
+.chart-end-label {
+  color: var(--series);
+  font-weight: 700;
+}
+
+.chart-tip {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  background: var(--ground);
+  border: 1px solid var(--hair);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  white-space: nowrap;
+  box-shadow: var(--shadow);
+  z-index: 2;
+}
+
+.chart-tip strong {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-tip span {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.chart-x {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--muted);
+  margin-top: -14px;
+}

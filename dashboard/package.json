@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test \"lib/**/*.test.ts\" && vitest run",
     "lint": "eslint",
-    "check:ui": "node e2e/check.ts"
+    "check:ui": "node e2e/check.ts",
+    "check:styles": "node e2e/styles.ts"
   },
   "dependencies": {
     "@tollgate/sdk": "workspace:*",

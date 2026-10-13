@@ -1,0 +1,56 @@
+/*//////////////////////////////////////////////////////////////
+                           WALLET BAR
+//////////////////////////////////////////////////////////////*/
+
+/**
+ * Who is signing, on every page.
+ *
+ * Kept quiet by default — this is context, not a call to action — but it earns the top of
+ * the page because it answers the question the whole product turns on: who can change this
+ * policy. It is deliberately not a card; a card would read as another panel of data rather
+ * than as a statement about authority.
+ */
+.walletbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+  padding: 9px 13px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.walletbar code {
+  font-size: 12px;
+  color: var(--text);
+}
+
+.walletbar-text {
+  flex: 1 1 240px;
+}
+
+.walletbar.ok {
+  border-color: color-mix(in oklab, var(--ok) 32%, var(--line));
+  color: var(--text);
+}
+
+.walletbar.ok svg {
+  color: var(--ok);
+  flex: none;
+}
+
+/* Not red. A wallet on the wrong account is a mismatch to correct, not a payment being
+   blocked — red stays reserved for refusals and the kill switch. */
+.walletbar.warn {
+  border-color: color-mix(in oklab, var(--accent) 34%, var(--line));
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.walletbar button {
+  flex: none;
+}

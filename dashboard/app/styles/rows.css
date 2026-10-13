@@ -1,0 +1,33 @@
+/* ---------- key/value rows ---------- */
+
+dl.facts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+}
+
+dl.facts dt {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 9px 20px 9px 0;
+  border-bottom: 1px solid var(--hair);
+  white-space: nowrap;
+}
+
+dl.facts dd {
+  margin: 0;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--hair);
+  font-size: 13px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+dl.facts > :nth-last-child(-n + 2) {
+  border-bottom: 0;
+}

@@ -1,0 +1,37 @@
+/* ---------- entrance ---------- */
+
+/*
+ * One short fade on first paint, and only on the streamed sections, so that content
+ * arriving late reads as *arriving* rather than as a flicker. Nothing loops, nothing
+ * moves on scroll. A page about money should sit still once it has landed.
+ */
+section.card,
+.verdict {
+  animation: rise 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* Icons sit on the text baseline rather than the line box, or they ride high next to caps. */
+a svg,
+.feed-sub svg {
+  vertical-align: -1px;
+}
+
+a:focus-visible,
+.live:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 2px;
+}

@@ -1,0 +1,81 @@
+/* The first-run checklist: wallet, policy, allowance, first payee. */
+
+.setup {
+  margin-bottom: 18px;
+  border-left: 2px solid var(--accent);
+}
+
+.setup-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.setup-count {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.setup-steps {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+}
+
+.setup-step {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 12px;
+  opacity: 0.7;
+}
+
+.setup-step.current,
+.setup-step.done {
+  opacity: 1;
+}
+
+.setup-mark {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.setup-step.done .setup-mark {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.setup-step.current .setup-mark {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.setup-title {
+  margin: 0;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.setup-detail {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.setup-cta {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 8px 0;
+  font-size: 13px;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

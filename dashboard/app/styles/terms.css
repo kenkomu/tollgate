@@ -1,0 +1,27 @@
+/* Plain-language tooltips for the jargon that cannot be avoided. */
+
+abbr.term {
+  text-decoration: underline dotted var(--muted);
+  text-underline-offset: 3px;
+  cursor: help;
+  position: relative;
+}
+
+abbr.term:hover::after,
+abbr.term:focus-visible::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  width: max-content;
+  max-width: min(280px, 80vw);
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font: 400 12px/1.5 var(--font-body);
+  white-space: normal;
+}

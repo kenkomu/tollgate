@@ -1,0 +1,51 @@
+/* ---------- layout ---------- */
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+@media (min-width: 920px) {
+  .grid-2 {
+    grid-template-columns: 1.15fr 1fr;
+    /* Cards size to their content. Stretching the shorter column to match the taller one
+       leaves a panel that is mostly empty, which reads as missing data rather than as
+       alignment. */
+    align-items: start;
+  }
+}
+
+section.card {
+  background: var(--surface);
+  border: 1px solid var(--hair);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 22px 24px;
+}
+
+/* Only top-level cards space themselves. Cards inside a grid are spaced by its `gap`,
+   and giving them a margin too would double the gutter on one axis. */
+.content > section.card,
+.content > section {
+  margin-bottom: 18px;
+}
+
+section.card.stopped {
+  border-color: var(--stop);
+}
+
+h2.card-title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 19px;
+  margin: 0 0 3px;
+  letter-spacing: -0.005em;
+}
+
+.card-note {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0 0 18px;
+}

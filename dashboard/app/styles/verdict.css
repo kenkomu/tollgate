@@ -1,0 +1,79 @@
+/* ---------- verdict ribbon ---------- */
+
+/*
+ * The first thing read, and the only element allowed to be loud. It answers "is this
+ * thing on?" before the eye reaches a single number, because that is the claim the whole
+ * project rests on. Its left edge carries the state as a colour so the answer survives
+ * being seen from across a room, or in a compressed video frame.
+ */
+.verdict {
+  background: var(--surface);
+  border: 1px solid var(--hair);
+  border-left: 3px solid var(--ok);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px 24px;
+  margin-bottom: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px 40px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.verdict.stopped {
+  border-left-color: var(--stop);
+}
+
+.verdict-state {
+  min-width: 260px;
+  flex: 1 1 340px;
+}
+
+.verdict-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--ok);
+}
+
+.verdict.stopped .verdict-badge {
+  color: var(--stop);
+}
+
+.verdict-line {
+  margin: 7px 0 0;
+  font-size: 13.5px;
+  color: var(--ink-2);
+  max-width: 52ch;
+}
+
+.verdict-stats {
+  display: flex;
+  gap: 32px;
+  margin: 0;
+  flex-wrap: wrap;
+}
+
+.verdict-stats dt {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 3px;
+}
+
+.verdict-stats dd {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
