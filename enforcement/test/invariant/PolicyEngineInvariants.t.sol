@@ -25,18 +25,17 @@ contract PolicyEngineInvariants is Test {
 
     /// @notice THE headline invariant. Lifetime spend can never pass the budget cap.
     function invariant_spentNeverExceedsBudget() public view {
-        for (uint256 i; i < 3; ++i) {
-            PolicyEngine.Policy memory p = engine.getPolicy(handler.owners(i));
+        for (uint256 i; i < handler.POLICIES(); ++i) {
+            PolicyEngine.Policy memory p = engine.getPolicy(handler.ids(i));
             assertLe(p.spent, p.budgetCap, "spent exceeded budgetCap");
         }
     }
 
     /// @notice Velocity headroom can never exceed the bucket's capacity.
     function invariant_availableNeverExceedsCapacity() public view {
-        for (uint256 i; i < 3; ++i) {
-            address owner = handler.owners(i);
-            PolicyEngine.Policy memory p = engine.getPolicy(owner);
-            assertLe(engine.availableNow(owner), p.bucketCapacity, "bucket overfilled");
+        for (uint256 i; i < handler.POLICIES(); ++i) {
+            uint256 id = handler.ids(i);
+            assertLe(engine.availableNow(id), engine.getPolicy(id).bucketCapacity, "bucket overfilled");
         }
     }
 
@@ -47,23 +46,40 @@ contract PolicyEngineInvariants is Test {
     }
 
     /// @notice The agent index and the policy must never disagree about who is bound to
-    ///         whom, because `spend` trusts the index to find the policy.
+    ///         whom, because `spend` trusts the index to find the policy. Survives rotation.
     function invariant_agentIndexMatchesPolicy() public view {
-        for (uint256 i; i < 3; ++i) {
-            address owner = handler.owners(i);
-            PolicyEngine.Policy memory p = engine.getPolicy(owner);
-            if (p.exists) {
-                assertEq(engine.ownerOf(p.agent), owner, "index and policy disagree");
+        for (uint256 i; i < handler.POLICIES(); ++i) {
+            uint256 id = handler.ids(i);
+            PolicyEngine.Policy memory p = engine.getPolicy(id);
+            assertTrue(p.exists, "policy vanished");
+            assertEq(p.agent, handler.agents(i), "policy bound to an unexpected key");
+            assertEq(engine.policyOf(p.agent), id, "index and policy disagree");
+            assertEq(p.owner, handler.ownerOfPolicy(i), "policy changed hands");
+        }
+    }
+
+    /// @notice An owner's enumeration lists exactly their own policies.
+    function invariant_policiesOfListsExactlyTheOwners() public view {
+        for (uint256 o; o < 3; ++o) {
+            uint256[] memory listed = engine.policiesOf(handler.owners(o));
+            assertEq(listed.length, 2, "each owner has two policies");
+            for (uint256 k; k < listed.length; ++k) {
+                assertEq(engine.getPolicy(listed[k]).owner, handler.owners(o), "listed someone else's policy");
             }
         }
+    }
+
+    /// @notice No owner ever changed a policy that was not theirs.
+    function invariant_noCrossOwnerEdits() public view {
+        assertEq(handler.ghostCrossOwnerEdits(), 0, "an owner edited another owner's policy");
     }
 
     /// @notice Independent accounting: what the contract recorded as spent must equal
     ///         what we watched leave, and equal what the payees actually received.
     function invariant_accountingReconciles() public view {
         uint256 recorded;
-        for (uint256 i; i < 3; ++i) {
-            recorded += engine.getPolicy(handler.owners(i)).spent;
+        for (uint256 i; i < handler.POLICIES(); ++i) {
+            recorded += engine.getPolicy(handler.ids(i)).spent;
         }
         assertEq(recorded, handler.ghostTotalSpent(), "contract disagrees with observed spends");
 

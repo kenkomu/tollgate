@@ -30,7 +30,9 @@ contract Deploy is Script {
         if (block.chainid == 5042) {
             require(vm.envOr("CONFIRM_MAINNET", false), "mainnet deploy: set CONFIRM_MAINNET=true");
         } else {
-            require(block.chainid == 5042002, "unexpected chain: expected Arc (5042) or Arc testnet (5042002)");
+            require(
+                block.chainid == 5042002, "unexpected chain: expected Arc (5042) or Arc testnet (5042002)"
+            );
         }
 
         console.log("chain id  :", block.chainid);

@@ -40,13 +40,13 @@ contract SeedDemo is Script {
         // Exactly the budget. Never max.
         usdc.approve(address(engine), BUDGET);
 
-        engine.createPolicy(agent, BUDGET, PER_TX, BUCKET, REFILL, 0);
-        engine.setPayee(payee, true);
+        uint256 policyId = engine.createPolicy(agent, BUDGET, PER_TX, BUCKET, REFILL, 0);
+        engine.setPayee(policyId, payee, true);
 
         vm.stopBroadcast();
 
         console.log("");
-        console.log("policy seeded:");
+        console.log("policy seeded, id:", policyId);
         console.log("  budget cap  : 10 USDC");
         console.log("  per-tx cap  :  2 USDC");
         console.log("  bucket      :  4 USDC burst, ~4 USDC/hour refill");

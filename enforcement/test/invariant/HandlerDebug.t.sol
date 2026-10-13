@@ -25,8 +25,9 @@ contract HandlerDebugTest is Test {
         address owner0 = handler.owners(0);
         address agent0 = handler.agents(0);
         address payee0 = handler.payees(0);
+        uint256 id0 = handler.ids(0);
 
-        PolicyEngine.Policy memory p = engine.getPolicy(owner0);
+        PolicyEngine.Policy memory p = engine.getPolicy(id0);
         console.log("policy exists   :", p.exists);
         console.log("policy agent    :", p.agent);
         console.log("expected agent  :", agent0);
@@ -34,10 +35,10 @@ contract HandlerDebugTest is Test {
         console.log("budgetCap       :", p.budgetCap / 1e6);
         console.log("perTxCap        :", p.perTxCap / 1e6);
         console.log("bucketCapacity  :", p.bucketCapacity / 1e6);
-        console.log("availableNow    :", engine.availableNow(owner0) / 1e6);
+        console.log("availableNow    :", engine.availableNow(id0) / 1e6);
         console.log("owner balance   :", usdc.balanceOf(owner0) / 1e6);
         console.log("allowance       :", usdc.allowance(owner0, address(engine)) / 1e6);
-        console.log("payee0 allowed  :", engine.isAllowedPayee(owner0, payee0));
+        console.log("payee0 allowed  :", engine.isAllowedPayee(id0, payee0));
         console.log("checkTransfer   :", uint256(engine.checkTransfer(agent0, payee0, 1_000e6)));
     }
 
@@ -62,7 +63,7 @@ contract HandlerDebugTest is Test {
 
         for (uint256 i; i < 400; ++i) {
             seed = uint256(keccak256(abi.encode(seed, i)));
-            uint256 action = seed % 10;
+            uint256 action = seed % 12;
 
             if (action < 6) {
                 handler.spend(seed, seed >> 8, seed >> 16);
@@ -72,8 +73,12 @@ contract HandlerDebugTest is Test {
                 handler.setPaused(seed, seed >> 32);
             } else if (action == 8) {
                 handler.setPayee(seed, seed >> 40, seed >> 48);
-            } else {
+            } else if (action == 9) {
                 handler.setVelocity(seed, uint128(seed >> 56), uint128(seed >> 64));
+            } else if (action == 10) {
+                handler.rotateAgent(seed >> 72);
+            } else {
+                handler.crossOwnerEdit(seed, seed >> 80, seed >> 88);
             }
         }
 
@@ -85,5 +90,6 @@ contract HandlerDebugTest is Test {
 
         assertGt(ok, 20, "happy path is starved: invariants would be near-vacuous");
         assertGt(blocked, 20, "refusal path is starved: policy is not being exercised");
+        assertEq(handler.ghostCrossOwnerEdits(), 0, "an owner edited another owner's policy");
     }
 }

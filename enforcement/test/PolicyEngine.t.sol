@@ -22,6 +22,8 @@ contract PolicyEngineTest is Test {
     uint128 constant BUCKET = 200e6; // 200 USDC burst
     uint128 constant REFILL = 200e6 / uint128(1 days); // ~200 USDC/day
 
+    uint256 id; // the owner's first policy
+
     function setUp() public {
         usdc = new MockUSDC();
         engine = new PolicyEngine(IERC20(address(usdc)));
@@ -29,8 +31,8 @@ contract PolicyEngineTest is Test {
         usdc.mint(owner, 10_000e6);
 
         vm.startPrank(owner);
-        engine.createPolicy(agent, BUDGET, PER_TX, BUCKET, REFILL, 0);
-        engine.setPayee(payee, true);
+        id = engine.createPolicy(agent, BUDGET, PER_TX, BUCKET, REFILL, 0);
+        engine.setPayee(id, payee, true);
         usdc.approve(address(engine), BUDGET); // exactly the budget — never max
         vm.stopPrank();
     }
@@ -46,12 +48,12 @@ contract PolicyEngineTest is Test {
         assertEq(usdc.balanceOf(payee), 50e6, "payee received");
         assertEq(usdc.balanceOf(owner), 10_000e6 - 50e6, "owner debited");
         assertEq(usdc.balanceOf(address(engine)), 0, "engine holds nothing, ever");
-        assertEq(engine.getPolicy(owner).spent, 50e6, "spend recorded");
+        assertEq(engine.getPolicy(id).spent, 50e6, "spend recorded");
     }
 
     function test_spend_emitsSpent() public {
         vm.expectEmit(true, true, true, true);
-        emit PolicyEngine.Spent(owner, agent, payee, 50e6, 50e6, BUCKET - 50e6);
+        emit PolicyEngine.Spent(owner, agent, payee, id, 50e6, 50e6, BUCKET - 50e6);
         vm.prank(agent);
         engine.spend(payee, 50e6);
     }
@@ -75,13 +77,13 @@ contract PolicyEngineTest is Test {
 
     function test_reason_paused() public {
         vm.prank(owner);
-        engine.setPaused(true);
+        engine.setPaused(id, true);
         _expectBlocked(PolicyEngine.Reason.PAUSED, payee, 1e6);
     }
 
     function test_reason_expired() public {
         vm.prank(owner);
-        engine.setExpiry(uint64(block.timestamp + 1 hours));
+        engine.setExpiry(id, uint64(block.timestamp + 1 hours));
 
         vm.warp(block.timestamp + 2 hours);
         _expectBlocked(PolicyEngine.Reason.EXPIRED, payee, 1e6);
@@ -104,8 +106,8 @@ contract PolicyEngineTest is Test {
         // Note: widening capacity does not retroactively fill the bucket — headroom has
         // to be earned by elapsed time — so warp a second to let the new rate fill it.
         vm.startPrank(owner);
-        engine.setCaps(BUDGET, BUDGET);
-        engine.setVelocity(type(uint128).max, type(uint128).max);
+        engine.setCaps(id, BUDGET, BUDGET);
+        engine.setVelocity(id, type(uint128).max, type(uint128).max);
         usdc.approve(address(engine), type(uint128).max);
         vm.stopPrank();
         vm.warp(block.timestamp + 1);
@@ -119,8 +121,8 @@ contract PolicyEngineTest is Test {
     function test_reason_exceedsVelocity() public {
         // Budget has room; the bucket does not.
         vm.startPrank(owner);
-        engine.setCaps(BUDGET, BUDGET);
-        engine.setVelocity(50e6, 0); // 50 burst, never refills
+        engine.setCaps(id, BUDGET, BUDGET);
+        engine.setVelocity(id, 50e6, 0); // 50 burst, never refills
         vm.stopPrank();
 
         vm.prank(agent);
@@ -185,7 +187,7 @@ contract PolicyEngineTest is Test {
     /// @notice The owner's response, and it does not need our backend to work.
     function test_killSwitch_stopsEverythingImmediately() public {
         vm.prank(owner);
-        engine.setPaused(true);
+        engine.setPaused(id, true);
 
         vm.prank(agent);
         vm.expectRevert(
@@ -205,7 +207,7 @@ contract PolicyEngineTest is Test {
     function test_rotatingAgentStrandsTheOldKey() public {
         address newAgent = makeAddr("newAgent");
         vm.prank(owner);
-        engine.setAgent(newAgent);
+        engine.setAgent(id, newAgent);
 
         vm.prank(agent);
         vm.expectRevert(
@@ -223,22 +225,22 @@ contract PolicyEngineTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function test_bucket_startsFull() public view {
-        assertEq(engine.availableNow(owner), BUCKET);
+        assertEq(engine.availableNow(id), BUCKET);
     }
 
     function test_bucket_refillsContinuously() public {
         vm.prank(agent);
         engine.spend(payee, 100e6);
-        assertEq(engine.availableNow(owner), BUCKET - 100e6);
+        assertEq(engine.availableNow(id), BUCKET - 100e6);
 
         vm.warp(block.timestamp + 12 hours);
         // ~half a day at 200/day ≈ 100 back, so ≈ full again.
-        assertApproxEqAbs(engine.availableNow(owner), BUCKET, 1e6);
+        assertApproxEqAbs(engine.availableNow(id), BUCKET, 1e6);
     }
 
     function test_bucket_neverExceedsCapacity() public {
         vm.warp(block.timestamp + 365 days);
-        assertEq(engine.availableNow(owner), BUCKET, "refill is capped at capacity");
+        assertEq(engine.availableNow(id), BUCKET, "refill is capped at capacity");
     }
 
     /// @notice The property a tumbling window does not have: no burst at a boundary.
@@ -246,17 +248,17 @@ contract PolicyEngineTest is Test {
     ///         back — not a whole fresh allowance on top of what you just spent.
     function test_bucket_noBoundaryBurst() public {
         vm.startPrank(owner);
-        engine.setCaps(type(uint128).max, type(uint128).max);
+        engine.setCaps(id, type(uint128).max, type(uint128).max);
         usdc.approve(address(engine), type(uint128).max);
         vm.stopPrank();
 
         vm.prank(agent);
         engine.spend(payee, BUCKET); // bucket now empty
-        assertEq(engine.availableNow(owner), 0);
+        assertEq(engine.availableNow(id), 0);
 
         vm.warp(block.timestamp + 1 minutes);
         // A tumbling window that just rolled over would allow the full cap here.
-        assertLt(engine.availableNow(owner), 1e6, "a minute buys a minute's worth");
+        assertLt(engine.availableNow(id), 1e6, "a minute buys a minute's worth");
     }
 
     /// @notice Widening the bucket must not hand out headroom that was never earned.
@@ -267,12 +269,12 @@ contract PolicyEngineTest is Test {
         engine.spend(payee, PER_TX); // drain the bucket within the per-tx cap
         engine.spend(payee, PER_TX);
         vm.stopPrank();
-        assertEq(engine.availableNow(owner), 0);
+        assertEq(engine.availableNow(id), 0);
 
         vm.prank(owner);
-        engine.setVelocity(type(uint128).max, REFILL); // much larger capacity
+        engine.setVelocity(id, type(uint128).max, REFILL); // much larger capacity
 
-        assertEq(engine.availableNow(owner), 0, "still empty: capacity is not a deposit");
+        assertEq(engine.availableNow(id), 0, "still empty: capacity is not a deposit");
     }
 
     function test_setVelocity_settlesAtOldRateFirst() public {
@@ -282,9 +284,9 @@ contract PolicyEngineTest is Test {
         vm.warp(block.timestamp + 12 hours); // ≈ 200 (capped)
 
         vm.prank(owner);
-        engine.setVelocity(50e6, 0); // shrink capacity to 50
+        engine.setVelocity(id, 50e6, 0); // shrink capacity to 50
 
-        assertEq(engine.availableNow(owner), 50e6, "settled then clamped to new capacity");
+        assertEq(engine.availableNow(id), 50e6, "settled then clamped to new capacity");
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -299,25 +301,26 @@ contract PolicyEngineTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(PolicyEngine.BudgetBelowSpent.selector, uint128(50e6), uint128(100e6))
         );
-        engine.setCaps(50e6, PER_TX);
+        engine.setCaps(id, 50e6, PER_TX);
     }
 
-    function test_createPolicy_rejectsDuplicate() public {
+    function test_createPolicy_secondAgentGetsItsOwnPolicy() public {
         vm.prank(owner);
-        vm.expectRevert(PolicyEngine.PolicyExists.selector);
-        engine.createPolicy(makeAddr("other"), BUDGET, PER_TX, BUCKET, REFILL, 0);
+        uint256 second = engine.createPolicy(makeAddr("other"), BUDGET, PER_TX, BUCKET, REFILL, 0);
+        assertEq(second, id + 1, "ids are sequential");
+        assertEq(engine.policiesOf(owner).length, 2);
     }
 
     function test_createPolicy_rejectsAgentBoundElsewhere() public {
         address other = makeAddr("otherOwner");
         vm.prank(other);
-        vm.expectRevert(abi.encodeWithSelector(PolicyEngine.AgentAlreadyBound.selector, agent, owner));
+        vm.expectRevert(abi.encodeWithSelector(PolicyEngine.AgentAlreadyBound.selector, agent, id));
         engine.createPolicy(agent, BUDGET, PER_TX, BUCKET, REFILL, 0);
     }
 
     function test_revokePolicy_unbindsAgent() public {
         vm.prank(owner);
-        engine.revokePolicy();
+        engine.revokePolicy(id);
 
         assertEq(engine.ownerOf(agent), address(0));
         vm.prank(agent);
@@ -328,12 +331,196 @@ contract PolicyEngineTest is Test {
     }
 
     function test_onlyOwnerTouchesTheirOwnPolicy() public {
-        // Everything is keyed on msg.sender, so a stranger simply has no policy.
+        // Policy ids are public. Knowing one gives a stranger nothing.
         vm.prank(stranger);
-        vm.expectRevert(PolicyEngine.NoPolicy.selector);
-        engine.setPaused(true);
+        vm.expectRevert(abi.encodeWithSelector(PolicyEngine.NotPolicyOwner.selector, id));
+        engine.setPaused(id, true);
 
-        assertFalse(engine.getPolicy(owner).paused, "owner's policy untouched");
+        assertFalse(engine.getPolicy(id).paused, "owner's policy untouched");
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          MANY AGENTS, ONE OWNER
+    //////////////////////////////////////////////////////////////*/
+
+    /// A second agent with its own policy, payee and budget, on the same owner wallet.
+    function _secondAgent() internal returns (address agent2, uint256 id2, address payee2) {
+        agent2 = makeAddr("agent2");
+        payee2 = makeAddr("payee2");
+        vm.startPrank(owner);
+        id2 = engine.createPolicy(agent2, 50e6, 10e6, 20e6, 0, 0);
+        engine.setPayee(id2, payee2, true);
+        usdc.approve(address(engine), BUDGET + 50e6); // the sum of both budgets
+        vm.stopPrank();
+    }
+
+    /// The point of per-agent allowlists: a leaked key reaches its own payees, never another's.
+    function test_multi_allowlistsDoNotLeakBetweenAgents() public {
+        (address agent2,, address payee2) = _secondAgent();
+
+        assertEq(
+            uint256(engine.checkTransfer(agent2, payee, 1e6)), uint256(PolicyEngine.Reason.PAYEE_NOT_ALLOWED)
+        );
+        assertEq(
+            uint256(engine.checkTransfer(agent, payee2, 1e6)), uint256(PolicyEngine.Reason.PAYEE_NOT_ALLOWED)
+        );
+        assertEq(uint256(engine.checkTransfer(agent2, payee2, 1e6)), uint256(PolicyEngine.Reason.OK));
+    }
+
+    function test_multi_budgetsAreSeparate() public {
+        (address agent2, uint256 id2, address payee2) = _secondAgent();
+
+        vm.prank(agent2);
+        engine.spend(payee2, 10e6);
+
+        assertEq(engine.getPolicy(id2).spent, 10e6);
+        assertEq(engine.getPolicy(id).spent, 0, "the other agent's budget is untouched");
+        // agent2 caps at 10 per payment even though agent's policy allows 100.
+        vm.prank(agent2);
+        vm.expectRevert(
+            abi.encodeWithSelector(PolicyEngine.PolicyViolation.selector, PolicyEngine.Reason.EXCEEDS_PER_TX)
+        );
+        engine.spend(payee2, 11e6);
+    }
+
+    function test_multi_pausingOneLeavesTheOtherRunning() public {
+        (address agent2,, address payee2) = _secondAgent();
+        vm.prank(owner);
+        engine.setPaused(id, true);
+
+        _expectBlocked(PolicyEngine.Reason.PAUSED, payee, 1e6);
+        vm.prank(agent2);
+        engine.spend(payee2, 1e6);
+    }
+
+    /// One transaction stops the whole fleet.
+    function test_multi_ownerPauseStopsEveryAgent() public {
+        (address agent2,, address payee2) = _secondAgent();
+        vm.expectEmit(true, true, true, true);
+        emit PolicyEngine.OwnerPauseSet(owner, true);
+        vm.prank(owner);
+        engine.setOwnerPaused(true);
+
+        _expectBlocked(PolicyEngine.Reason.PAUSED, payee, 1e6);
+        assertEq(uint256(engine.checkTransfer(agent2, payee2, 1e6)), uint256(PolicyEngine.Reason.PAUSED));
+
+        vm.prank(owner);
+        engine.setOwnerPaused(false);
+        vm.prank(agent2);
+        engine.spend(payee2, 1e6);
+    }
+
+    /// Resuming the fleet must not quietly un-pause an agent the owner stopped on its own.
+    function test_multi_ownerResumeKeepsIndividualPauses() public {
+        vm.startPrank(owner);
+        engine.setPaused(id, true);
+        engine.setOwnerPaused(true);
+        engine.setOwnerPaused(false);
+        vm.stopPrank();
+
+        _expectBlocked(PolicyEngine.Reason.PAUSED, payee, 1e6);
+    }
+
+    /// Another owner's fleet switch has no effect on this owner.
+    function test_multi_ownerPauseIsPerOwner() public {
+        vm.prank(stranger);
+        engine.setOwnerPaused(true);
+        assertEq(uint256(engine.checkTransfer(agent, payee, 1e6)), uint256(PolicyEngine.Reason.OK));
+    }
+
+    function test_multi_oneKeyCannotServeTwoPolicies() public {
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(PolicyEngine.AgentAlreadyBound.selector, agent, id));
+        engine.createPolicy(agent, BUDGET, PER_TX, BUCKET, REFILL, 0);
+
+        (address agent2, uint256 id2,) = _secondAgent();
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(PolicyEngine.AgentAlreadyBound.selector, agent2, id2));
+        engine.setAgent(id, agent2);
+    }
+
+    function test_multi_rotationKeepsTheAllowlist() public {
+        address fresh = makeAddr("fresh");
+        vm.prank(owner);
+        engine.setAgent(id, fresh);
+
+        assertTrue(engine.isAllowedPayee(id, payee), "payees belong to the policy, not the key");
+        vm.prank(fresh);
+        engine.spend(payee, 1e6);
+        assertEq(engine.ownerOf(fresh), owner);
+        assertEq(engine.ownerOf(agent), address(0));
+    }
+
+    function test_multi_revokeRemovesOnlyThatPolicy() public {
+        (address agent2, uint256 id2,) = _secondAgent();
+        address agent3 = makeAddr("agent3");
+        vm.prank(owner);
+        uint256 id3 = engine.createPolicy(agent3, 1e6, 1e6, 1e6, 0, 0);
+
+        vm.prank(owner);
+        engine.revokePolicy(id); // the first of three: exercises the swap-and-pop
+
+        uint256[] memory left = engine.policiesOf(owner);
+        assertEq(left.length, 2);
+        assertTrue((left[0] == id2 && left[1] == id3) || (left[0] == id3 && left[1] == id2));
+        assertEq(engine.policyOf(agent), 0);
+        assertEq(engine.policyOf(agent2), id2);
+
+        // And the remaining ones can still be revoked cleanly.
+        vm.startPrank(owner);
+        engine.revokePolicy(id3);
+        engine.revokePolicy(id2);
+        vm.stopPrank();
+        assertEq(engine.policiesOf(owner).length, 0);
+    }
+
+    function test_multi_revokedIdIsDeadForever() public {
+        vm.startPrank(owner);
+        engine.revokePolicy(id);
+        vm.expectRevert(PolicyEngine.NoPolicy.selector);
+        engine.setPaused(id, true);
+        vm.expectRevert(PolicyEngine.NoPolicy.selector);
+        engine.revokePolicy(id);
+        // A new policy gets a new id, and does not inherit the old allowlist.
+        uint256 next = engine.createPolicy(agent, BUDGET, PER_TX, BUCKET, REFILL, 0);
+        vm.stopPrank();
+        assertGt(next, id);
+        assertFalse(engine.isAllowedPayee(next, payee));
+    }
+
+    function test_multi_ownerCannotEditAnotherOwnersPolicy() public {
+        address other = makeAddr("otherOwner");
+        address otherAgent = makeAddr("otherAgent");
+        vm.prank(other);
+        uint256 theirs = engine.createPolicy(otherAgent, 1e6, 1e6, 1e6, 0, 0);
+
+        vm.startPrank(owner);
+        vm.expectRevert(abi.encodeWithSelector(PolicyEngine.NotPolicyOwner.selector, theirs));
+        engine.setCaps(theirs, type(uint128).max, type(uint128).max);
+        vm.expectRevert(abi.encodeWithSelector(PolicyEngine.NotPolicyOwner.selector, theirs));
+        engine.setPayee(theirs, stranger, true);
+        vm.expectRevert(abi.encodeWithSelector(PolicyEngine.NotPolicyOwner.selector, theirs));
+        engine.setAgent(theirs, stranger);
+        vm.expectRevert(abi.encodeWithSelector(PolicyEngine.NotPolicyOwner.selector, theirs));
+        engine.revokePolicy(theirs);
+        vm.stopPrank();
+    }
+
+    /// The allowance is the ceiling across all agents together, whatever their budgets say.
+    function test_multi_sharedAllowanceBindsAcrossAgents() public {
+        (address agent2,, address payee2) = _secondAgent();
+        vm.prank(owner);
+        usdc.approve(address(engine), 15e6);
+
+        vm.prank(agent);
+        engine.spend(payee, 10e6);
+        vm.prank(agent2);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                PolicyEngine.PolicyViolation.selector, PolicyEngine.Reason.INSUFFICIENT_ALLOWANCE
+            )
+        );
+        engine.spend(payee2, 10e6);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -346,8 +533,8 @@ contract PolicyEngineTest is Test {
         uint128 c
     ) public {
         vm.startPrank(owner);
-        engine.setVelocity(type(uint128).max, type(uint128).max);
-        engine.setCaps(BUDGET, BUDGET);
+        engine.setVelocity(id, type(uint128).max, type(uint128).max);
+        engine.setCaps(id, BUDGET, BUDGET);
         usdc.approve(address(engine), type(uint128).max);
         vm.stopPrank();
 
@@ -355,7 +542,7 @@ contract PolicyEngineTest is Test {
         _trySpend(b);
         _trySpend(c);
 
-        assertLe(engine.getPolicy(owner).spent, BUDGET, "spent never exceeds budgetCap");
+        assertLe(engine.getPolicy(id).spent, BUDGET, "spent never exceeds budgetCap");
     }
 
     function testFuzz_blockedSpendMovesNothing(
@@ -364,13 +551,13 @@ contract PolicyEngineTest is Test {
     ) public {
         vm.assume(to != address(0) && to != owner);
         uint256 balBefore = usdc.balanceOf(owner);
-        uint128 spentBefore = engine.getPolicy(owner).spent;
+        uint128 spentBefore = engine.getPolicy(id).spent;
 
         vm.prank(agent);
         try engine.spend(to, amount) {}
         catch {
             assertEq(usdc.balanceOf(owner), balBefore, "a refused spend moves no money");
-            assertEq(engine.getPolicy(owner).spent, spentBefore, "and records nothing");
+            assertEq(engine.getPolicy(id).spent, spentBefore, "and records nothing");
         }
     }
 
@@ -390,7 +577,7 @@ contract PolicyEngineTest is Test {
         uint256 ownerBefore = usdc.balanceOf(owner);
 
         vm.expectEmit(true, true, true, true);
-        emit PolicyEngine.Refused(owner, agent, stranger, 10e6, PolicyEngine.Reason.PAYEE_NOT_ALLOWED);
+        emit PolicyEngine.Refused(owner, agent, stranger, id, 10e6, PolicyEngine.Reason.PAYEE_NOT_ALLOWED);
 
         vm.prank(agent);
         PolicyEngine.Reason r = engine.trySpend(stranger, 10e6);
@@ -398,7 +585,7 @@ contract PolicyEngineTest is Test {
         assertEq(uint256(r), uint256(PolicyEngine.Reason.PAYEE_NOT_ALLOWED), "reason returned, not reverted");
         assertEq(usdc.balanceOf(stranger), 0, "payee got nothing");
         assertEq(usdc.balanceOf(owner), ownerBefore, "owner untouched");
-        assertEq(engine.getPolicy(owner).spent, 0, "refusal is not a spend");
+        assertEq(engine.getPolicy(id).spent, 0, "refusal is not a spend");
     }
 
     function test_trySpend_succeedsExactlyLikeSpend() public {
@@ -407,7 +594,7 @@ contract PolicyEngineTest is Test {
 
         assertEq(uint256(r), uint256(PolicyEngine.Reason.OK));
         assertEq(usdc.balanceOf(payee), 50e6, "funds moved");
-        assertEq(engine.getPolicy(owner).spent, 50e6, "spend recorded");
+        assertEq(engine.getPolicy(id).spent, 50e6, "spend recorded");
         assertEq(usdc.balanceOf(address(engine)), 0, "engine still holds nothing");
     }
 
@@ -433,13 +620,13 @@ contract PolicyEngineTest is Test {
 
     /// A refused attempt must not quietly consume velocity headroom or budget.
     function test_trySpend_refusalConsumesNothing() public {
-        uint128 availableBefore = engine.availableNow(owner);
+        uint128 availableBefore = engine.availableNow(id);
 
         vm.prank(agent);
         engine.trySpend(stranger, 10e6);
 
-        assertEq(engine.availableNow(owner), availableBefore, "bucket untouched");
-        assertEq(engine.remainingBudget(owner), BUDGET, "budget untouched");
+        assertEq(engine.availableNow(id), availableBefore, "bucket untouched");
+        assertEq(engine.remainingBudget(id), BUDGET, "budget untouched");
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -450,15 +637,15 @@ contract PolicyEngineTest is Test {
     function test_setPayee_rejectsTheEngineItself() public {
         vm.prank(owner);
         vm.expectRevert(abi.encodeWithSelector(PolicyEngine.InvalidPayee.selector, address(engine)));
-        engine.setPayee(address(engine), true);
+        engine.setPayee(id, address(engine), true);
 
-        assertFalse(engine.isAllowedPayee(owner, address(engine)), "never allowlisted");
+        assertFalse(engine.isAllowedPayee(id, address(engine)), "never allowlisted");
     }
 
     function test_setPayee_stillRejectsZero() public {
         vm.prank(owner);
         vm.expectRevert(PolicyEngine.ZeroAddress.selector);
-        engine.setPayee(address(0), true);
+        engine.setPayee(id, address(0), true);
     }
 
     function _expectBlocked(

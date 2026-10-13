@@ -1,6 +1,6 @@
 # 0004 — One policy per owner
 
-**Status:** accepted · **Date:** 2026-08-05
+**Status:** superseded by [0010](0010-many-agents-per-owner.md) · **Date:** 2026-08-05
 
 ## Context
 
