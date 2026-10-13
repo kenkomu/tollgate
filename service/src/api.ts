@@ -110,7 +110,9 @@ export function createApi(config: ApiConfig): Server {
 
   route("GET", "/activity", (req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
-    const limit = Math.min(Number(url.searchParams.get("limit") ?? 100), 500);
+    // Up to 10,000 so a client can rebuild the allowlist from the full history, which needs
+    // every PayeeSet ever emitted, not the latest page.
+    const limit = Math.min(Number(url.searchParams.get("limit") ?? 100), 10_000);
     json(res, 200, {
       indexedThrough: store.lastIndexedBlock(),
       entries: store.activityFor(owner, limit),

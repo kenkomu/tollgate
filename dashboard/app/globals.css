@@ -2153,3 +2153,31 @@ section.card,
   text-decoration: none;
   justify-content: center;
 }
+
+/* ---------- contrast fixes from the axe pass (e2e/check.ts) ---------- */
+
+/* Not-yet-reached steps were dimmed with opacity, which took their text under 4.5:1. The
+   step marker carries "not yet"; the text stays readable. */
+.setup-step {
+  opacity: 1;
+}
+
+/* The stat pills darken the hero in both schemes. Mixing in --ground lightened it in light
+   mode, under white text. */
+.verdict-stats > div {
+  background: rgb(0 0 0 / 0.16);
+}
+
+@media (max-width: 620px) {
+  /* Inactive tabs were faded with opacity; on the light theme's green that failed contrast.
+     Full-strength text everywhere, and the active tab gets a darker pill instead. */
+  .rail-link,
+  .rail-link:hover {
+    opacity: 1;
+  }
+
+  .rail-link.active,
+  .rail-link.active:hover {
+    background: rgb(0 0 0 / 0.18);
+  }
+}

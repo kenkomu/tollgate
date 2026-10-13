@@ -40,3 +40,5 @@ mobile/*.p12
 # expo
 mobile/.claude/
 recordings/
+
+dashboard/e2e/shots/

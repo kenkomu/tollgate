@@ -324,3 +324,24 @@ suite("owner policy changes reach the log", () => {
     }
   });
 });
+
+suite("auditFromActivity", () => {
+  const row = (key: string, block: bigint, kind: string, payee?: string) =>
+    ({key, kind, blockNumber: block, timestamp: 0, txHash: key.split(":")[0]!, payee}) as never;
+
+  it("folds the allowlist and pause state oldest-first, and de-duplicates by key", async () => {
+    const {auditFromActivity} = await import("../src/audit.ts");
+    const audit = auditFromActivity([
+      row("0xc:0", 30n, "resumed"),
+      row("0xa:1", 10n, "payee-allowed", "0x00000000000000000000000000000000000000Bb"),
+      row("0xa:1", 10n, "payee-allowed", "0x00000000000000000000000000000000000000Bb"),
+      row("0xb:0", 20n, "paused"),
+      row("0xa:2", 10n, "payee-allowed", "0x00000000000000000000000000000000000000cc"),
+      row("0xd:0", 40n, "payee-removed", "0x00000000000000000000000000000000000000CC"),
+    ]);
+    assert.equal(audit.entries.length, 5);
+    assert.equal(audit.entries[0]!.key, "0xd:0");
+    assert.deepEqual(audit.allowedPayees, ["0x00000000000000000000000000000000000000Bb"]);
+    assert.equal(audit.paused, false);
+  });
+});

@@ -2,6 +2,7 @@ import {createPublicClient, http, parseEventLogs, type Address, type PublicClien
 import {
   ARC_POLLING_INTERVAL_MS,
   MAX_LOG_BLOCK_RANGE,
+  readLogsSplitting,
   POLICY_ENGINE_DEPLOY_BLOCK,
   activeChain,
   planWindows,
@@ -103,7 +104,11 @@ export class Indexer {
   }
 
   async #readWindow(from: bigint, to: bigint): Promise<StoredEvent[]> {
-    const logs = await this.#client.getLogs({address: this.engine, fromBlock: from, toBlock: to});
+    const logs = await readLogsSplitting(
+      (fromBlock, toBlock) => this.#client.getLogs({address: this.engine, fromBlock, toBlock}),
+      from,
+      to,
+    );
     const decoded = parseEventLogs({abi: policyEngineAbi, logs, strict: false});
     const audit = projectAuditLog(decoded as unknown as EngineLog[], this.owner);
     return audit.entries.map((entry) => ({...entry, owner: this.owner}));

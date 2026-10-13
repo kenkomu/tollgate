@@ -1,7 +1,10 @@
 import {
   POLICY_ENGINE_DEPLOY_BLOCK,
+  auditFromActivity,
   planWindows,
   projectAuditLog,
+  readLogsSplitting,
+  type Activity,
   type AuditLog,
   type EngineLog,
 } from "@tollgate/shared";
@@ -28,7 +31,11 @@ export type {Activity, ActivityKind, AuditLog} from "@tollgate/shared";
  * the request count for no benefit when we want all of them anyway.
  */
 async function readWindow(from: bigint, to: bigint) {
-  const logs = await publicClient.getLogs({address: ENGINE, fromBlock: from, toBlock: to});
+  const logs = await readLogsSplitting(
+    (fromBlock, toBlock) => publicClient.getLogs({address: ENGINE, fromBlock, toBlock}),
+    from,
+    to,
+  );
   return parseEventLogs({abi, logs, strict: false});
 }
 
@@ -142,14 +149,71 @@ async function readAllLogs(head: bigint) {
   return out;
 }
 
-/** Reads the whole history for one owner, from the deployment block onward. */
+const SERVICE_URL = process.env.TOLLGATE_SERVICE_URL ?? "http://localhost:8080";
+
+/** If the index is further behind than this, it is still backfilling: read the chain instead. */
+const MAX_INDEX_LAG = 50_000n;
+
+/** The service's JSON renders bigints as strings. Put them back. */
+function reviveActivity(row: Record<string, unknown>): Activity {
+  const big = (v: unknown) => (v === undefined || v === null ? undefined : BigInt(v as string));
+  const detail = row.detail as {label: string; values: string[]} | undefined;
+  return {
+    ...(row as unknown as Activity),
+    blockNumber: BigInt(row.blockNumber as string),
+    amount: big(row.amount),
+    spentTotal: big(row.spentTotal),
+    availableAfter: big(row.availableAfter),
+    detail: detail ? {label: detail.label, values: detail.values.map((v) => BigInt(v))} : undefined,
+  };
+}
+
+/** Indexed history from the service, or null if it is not running or not caught up. */
+async function fromService(head: bigint): Promise<{indexedThrough: bigint; entries: Activity[]} | null> {
+  try {
+    const response = await fetch(`${SERVICE_URL}/activity?limit=10000`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(3_000),
+    });
+    if (!response.ok) return null;
+    const body = (await response.json()) as {indexedThrough: string | number | null; entries: Record<string, unknown>[]};
+    if (body.indexedThrough === null) return null;
+    const indexedThrough = BigInt(body.indexedThrough);
+    if (head - indexedThrough > MAX_INDEX_LAG) return null;
+    return {indexedThrough, entries: body.entries.map(reviveActivity)};
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Reads the whole history for one owner.
+ *
+ * Fast path: the service has already indexed every settled block, so this asks it for the
+ * history and reads only the unindexed tip (a few dozen blocks) from chain. That turns a
+ * cold page load from thousands of `eth_getLogs` calls into one HTTP request and one small
+ * log read. The chain is still the authority: the service only stores decoded contract
+ * events, and the tip it has not reached yet comes straight from Arc.
+ *
+ * Slow path, when the service is down or still backfilling: walk the chain from the
+ * deployment block, as before.
+ */
 export async function readAuditLog(owner: Address): Promise<AuditLog> {
-  // One head read shared across the whole walk, so the log cannot show a half-updated
+  // One head read shared across the whole read, so the log cannot show a half-updated
   // picture built from two different chain tips.
   const head = await publicClient.getBlockNumber();
-  const all = await readAllLogs(head);
 
-  const audit = projectAuditLog(all as unknown as EngineLog[], owner);
+  const indexed = await fromService(head);
+  let audit: AuditLog;
+  if (indexed) {
+    const tipFrom = indexed.indexedThrough + 1n;
+    const tipLogs = tipFrom <= head ? await withBackoff(() => readWindow(tipFrom, head)) : [];
+    const tip = projectAuditLog(tipLogs as unknown as EngineLog[], owner);
+    audit = auditFromActivity([...indexed.entries, ...tip.entries]);
+  } else {
+    const all = await readAllLogs(head);
+    audit = projectAuditLog(all as unknown as EngineLog[], owner);
+  }
 
   // Timestamps for the visible window only — one RPC call per block is not free. A block's
   // timestamp never changes, so each one is fetched at most once per process lifetime.

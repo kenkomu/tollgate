@@ -158,8 +158,10 @@ describe("walking the chain", () => {
     let calls = 0;
     const failing = stubClient(chain);
     const original = failing.getLogs.bind(failing);
+    // Persistent from the third call on: a one-off failure is now absorbed by splitting the
+    // window (readLogsSplitting), so only an endpoint that stays down should reject the walk.
     (failing as {getLogs: unknown}).getLogs = async (args: never) => {
-      if (++calls === 3) throw new Error("rate limited");
+      if (++calls >= 3) throw new Error("rate limited");
       return original(args);
     };
 
@@ -168,6 +170,21 @@ describe("walking the chain", () => {
 
     assert.ok(store.lastIndexedBlock() !== null, "cursor should have advanced before the failure");
     assert.ok(store.lastIndexedBlock()! > DEPLOY);
+  });
+
+  it("survives a window the endpoint refuses, by splitting it", async () => {
+    chain.head = DEPLOY + MAX_LOG_BLOCK_RANGE * 2n;
+    chain.logs = [spentLog(DEPLOY + 10n, 0, usdc("1"))];
+    const picky = stubClient(chain);
+    const original = picky.getLogs.bind(picky);
+    (picky as {getLogs: unknown}).getLogs = async (args: {fromBlock: bigint; toBlock: bigint}) => {
+      if (args.toBlock - args.fromBlock + 1n > 1_000n) throw new Error("RPC Request failed.");
+      return original(args as never);
+    };
+
+    const indexer = new Indexer({engine: ENGINE, owner: OWNER, store, client: picky, confirmations: 64n});
+    const result = await indexer.catchUp();
+    assert.equal(result.written, 1);
   });
 });
 

@@ -296,3 +296,33 @@ export function describe(entry: Activity): string {
 export function reasonText(reason: Reason): string {
   return explainToOwner(reason);
 }
+
+/**
+ * Rebuild an audit log from activity rows that were already projected, such as the service's
+ * index plus a fresh read of the unindexed tip.
+ *
+ * The allowlist and paused state are folded from the rows themselves, oldest first, so this
+ * agrees with `projectAuditLog` over the same events. Rows are de-duplicated by key
+ * (`tx_hash:log_index`), which is what makes merging an index with an overlapping chain read
+ * safe.
+ */
+export function auditFromActivity(rows: readonly Activity[]): AuditLog {
+  const byKey = new Map<string, Activity>();
+  for (const row of rows) byKey.set(row.key, row);
+
+  const logIndex = (key: string) => Number(key.slice(key.lastIndexOf(":") + 1)) || 0;
+  const oldestFirst = [...byKey.values()].sort((a, b) =>
+    a.blockNumber === b.blockNumber ? logIndex(a.key) - logIndex(b.key) : a.blockNumber < b.blockNumber ? -1 : 1,
+  );
+
+  const payees = new Map<string, Address>();
+  let paused = false;
+  for (const row of oldestFirst) {
+    if (row.kind === "payee-allowed" && row.payee) payees.set(row.payee.toLowerCase(), row.payee);
+    if (row.kind === "payee-removed" && row.payee) payees.delete(row.payee.toLowerCase());
+    if (row.kind === "paused") paused = true;
+    if (row.kind === "resumed") paused = false;
+  }
+
+  return {entries: oldestFirst.reverse(), allowedPayees: [...payees.values()], paused};
+}

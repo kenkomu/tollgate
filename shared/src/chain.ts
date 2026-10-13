@@ -174,13 +174,18 @@ export const SUGGESTED_PRIORITY_FEE_WEI = 1_000_000_000n; // 1 Gwei tip
  * The error message claims 100,000 — "query exceeds max block range 100000" — but a
  * 100,000-block window is then refused with "requested range too large". Probing the
  * endpoint directly: 50,000 fails, 20,000 succeeds. So the advertised limit is not the
- * enforced one, and 20,000 is what we use.
+ * enforced one.
+ *
+ * It has since moved. Re-probed 2026-10-13: 20,000 and 10,000 now fail with a bare "RPC
+ * Request failed", and 5,000 succeeds. The limit is not documented and clearly not stable, so
+ * this is only the starting span: `readLogsSplitting` halves any window the endpoint refuses,
+ * so the next change degrades speed instead of breaking the audit log.
  *
  * At roughly half-second blocks this is only a few hours of history per request, so any
  * log read over a useful period must be chunked. Reading from genesis is not slow here,
  * it is refused outright.
  */
-export const MAX_LOG_BLOCK_RANGE = 20_000n;
+export const MAX_LOG_BLOCK_RANGE = 5_000n;
 
 /**
  * How far back a chunked read will reach when a caller wants a bounded walk.
