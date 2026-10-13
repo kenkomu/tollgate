@@ -61,10 +61,13 @@ inventory. Both were reconciled against the source tree on 2026-08-09.
       published to npm.
 - [~] **Framework adapters** — MCP server and Glove tools done; LangChain and Vercel AI SDK
       still to do.
-- [ ] **Deterministic attacker script.** The compromised-agent demo relies on a model
-      choosing to attack. A scripted adversary that tries every evasion in a fixed order
-      would make the guarantee reproducible instead of anecdotal. **This is the single
-      biggest honesty gap in the demo** — see below.
+- [x] **Deterministic attacker script.** `pnpm attack` holds the real agent key and runs
+      eleven evasions in a fixed order (unknown payee, per-payment and budget overruns, burst,
+      paying the contract, self-allowlisting, raising caps, unpausing, re-binding, direct
+      `spend`, and a raw USDC `transferFrom` around the contract). Dry run is free;
+      `--submit` leaves the refusals on chain. Exits non-zero on any breach. The budget and
+      burst rules are reported as skipped, with the reason, when the per-payment cap would
+      refuse first.
 - [x] **Automatic retry on `EXCEEDS_VELOCITY`.** The client computes the wait from the
       bucket state and sleeps, or throws `VelocityWaitTooLongError` if the wait exceeds
       the caller's patience.

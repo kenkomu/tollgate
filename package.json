@@ -22,7 +22,8 @@
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
-    "test:all": "pnpm contracts:test && pnpm typecheck && pnpm test"
+    "test:all": "pnpm contracts:test && pnpm typecheck && pnpm test",
+    "attack": "pnpm --filter @tollgate/agent attack"
   },
   "devDependencies": {
     "typescript": "~6.0.3",
