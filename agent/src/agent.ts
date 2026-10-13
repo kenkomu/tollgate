@@ -1,7 +1,7 @@
 import {createSdkMcpServer, query} from "@anthropic-ai/claude-agent-sdk";
 import type {Address} from "viem";
 import {createTollgateTools, type EventSink} from "./tools.ts";
-import type {TollgateClient} from "./tollgate.ts";
+import type {TollgateClient} from "@tollgate/sdk";
 
 const SERVER_NAME = "tollgate";
 

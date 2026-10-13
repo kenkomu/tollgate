@@ -12,7 +12,7 @@
  */
 
 import {formatUsdc} from "@tollgate/shared";
-import {TollgateClient, VelocityWaitTooLongError} from "./tollgate.ts";
+import {TollgateClient, VelocityWaitTooLongError} from "@tollgate/sdk";
 import type {Address, Hex} from "viem";
 
 const engine = process.env.POLICY_ENGINE_ADDRESS as Address;

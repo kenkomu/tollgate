@@ -2,7 +2,7 @@ import {activeChain, formatUsdc, fromUsdc} from "@tollgate/shared";
 import type {Address, Hex} from "viem";
 import {runAgent} from "./agent.ts";
 import {COMPROMISED, NORMAL, type Scenario} from "./scenarios.ts";
-import {TollgateClient} from "./tollgate.ts";
+import {TollgateClient} from "@tollgate/sdk";
 import type {AgentEvent} from "./tools.ts";
 import {amber, banner, bold, dim, field, green, grey, meter, red, renderEvent} from "./ui.ts";
 

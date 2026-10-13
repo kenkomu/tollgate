@@ -8,7 +8,7 @@ import {
   PolicyRefusedError,
   TollgateClient,
   VelocityWaitTooLongError,
-} from "../src/tollgate.ts";
+} from "../src/client.ts";
 import {
   AGENT_KEY,
   ENGINE,
