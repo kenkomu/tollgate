@@ -30,7 +30,12 @@ if (!engine || !owner) {
 
 const db = openDb();
 const store = new Store(db);
-const indexer = new Indexer({engine, owner, store, rpcUrl: process.env.ARC_RPC_URL});
+/**
+ * The indexer may use its own endpoint. A backfill is thousands of `eth_getLogs` calls; on the
+ * same public endpoint as the dashboard it competes with the owner's live policy read for one
+ * rate limit. Point INDEXER_RPC_URL at a second provider and the two stop interfering.
+ */
+const indexer = new Indexer({engine, owner, store, rpcUrl: process.env.INDEXER_RPC_URL ?? process.env.ARC_RPC_URL});
 /**
  * Real push when a device has registered, the log otherwise.
  *

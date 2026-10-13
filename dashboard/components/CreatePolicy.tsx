@@ -21,6 +21,41 @@ import {createPolicy} from "../lib/owner.ts";
 
 const DAY = 86_400n;
 
+/**
+ * Starting points, not recommendations. Each sets all four numbers at once and can be edited
+ * before signing. Small on purpose: the first policy someone creates should be one they would
+ * be comfortable losing entirely, because that is the most it can ever cost them.
+ */
+const TEMPLATES = [
+  {
+    id: "trial",
+    name: "Trial run",
+    blurb: "Try it out with pocket change",
+    budget: "5",
+    perTx: "1",
+    burst: "2",
+    perDay: "5",
+  },
+  {
+    id: "research",
+    name: "Research agent",
+    blurb: "Many small API and data purchases",
+    budget: "25",
+    perTx: "0.50",
+    burst: "3",
+    perDay: "10",
+  },
+  {
+    id: "procurement",
+    name: "Procurement agent",
+    blurb: "A few larger orders to known suppliers",
+    budget: "200",
+    perTx: "50",
+    burst: "100",
+    perDay: "100",
+  },
+] as const;
+
 function parseUsdc(value: string): bigint | null {
   const trimmed = value.trim();
   if (!/^\d+(\.\d{1,6})?$/.test(trimmed)) return null;
@@ -37,6 +72,18 @@ export function CreatePolicy() {
   const [perTx, setPerTx] = useState("2");
   const [burst, setBurst] = useState("4");
   const [perDay, setPerDay] = useState("96");
+
+  const [template, setTemplate] = useState<string | null>(null);
+
+  function apply(id: string) {
+    const t = TEMPLATES.find((x) => x.id === id);
+    if (!t) return;
+    setTemplate(id);
+    setBudget(t.budget);
+    setPerTx(t.perTx);
+    setBurst(t.burst);
+    setPerDay(t.perDay);
+  }
 
   const parsed = {
     budget: parseUsdc(budget),
@@ -75,6 +122,26 @@ export function CreatePolicy() {
         })
       }
     >
+      <fieldset className="templates">
+        <legend>Start from a template</legend>
+        <div className="template-list">
+          {TEMPLATES.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              className={`template${template === t.id ? " active" : ""}`}
+              aria-pressed={template === t.id}
+              onClick={() => apply(t.id)}
+            >
+              <span className="template-name">{t.name}</span>
+              <span className="template-blurb">{t.blurb}</span>
+              <span className="template-numbers">
+                ${t.budget} total · ${t.perTx} each · ${t.perDay}/day
+              </span>
+            </button>
+          ))}
+        </div>
+      </fieldset>
       <Field
         label="Agent address"
         value={agent}

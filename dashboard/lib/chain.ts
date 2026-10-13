@@ -29,8 +29,10 @@ export const publicClient = createPublicClient({
   chain: activeChain,
   transport: http(process.env.ARC_RPC_URL ?? activeChain.rpcUrls.default.http[0], {
     timeout: 20_000,
-    retryCount: 4,
-    retryDelay: 400,
+    // Exponential from 500ms: 0.5, 1, 2, 4, 8s. Long enough to outlast a burst limit; the
+    // policy read is the one this page cannot do without.
+    retryCount: 5,
+    retryDelay: 500,
   }),
   pollingInterval: ARC_POLLING_INTERVAL_MS,
 });

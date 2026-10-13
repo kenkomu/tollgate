@@ -85,13 +85,19 @@ export class Indexer {
     let written = 0;
     const windows = planWindows(from, safeTip, safeTip, MAX_LOG_BLOCK_RANGE);
 
+    let pause = 250;
     for (const [position, window] of windows.entries()) {
-      // Paced. A cold start is two dozen `eth_getLogs` calls, and firing them back to back is
-      // what earns the -32005 that then stalls the whole backfill. A short gap between windows
-      // costs seconds once, on a walk that only ever happens once.
-      if (position > 0) await new Promise((resolve) => setTimeout(resolve, 250));
+      // Paced, and politely. The indexer shares the endpoint's rate limit with everything else
+      // on this machine, the dashboard's live policy read included, and a backfill that takes
+      // the whole budget starves the one read the owner actually needs. A window that came back
+      // slowly was almost certainly retried through rate limits, so the next pause matches it:
+      // the backfill slows down exactly when the endpoint is busy.
+      if (position > 0) await new Promise((resolve) => setTimeout(resolve, pause));
 
+      const started = Date.now();
       const events = await this.#readWindow(window.from, window.to);
+      const took = Date.now() - started;
+      pause = took > 1_500 ? Math.min(took, 5_000) : 250;
       written += this.#store.putEvents(events);
 
       // Advanced per window, not once at the end. A crash halfway through a long backfill
