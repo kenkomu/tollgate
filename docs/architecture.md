@@ -27,7 +27,7 @@ architecture is mostly an argument that no such path exists.
         │ setPayee(payee, true)                        │
         ▼                                              ▼
    ┌──────────────────────────────────────────────────────────────┐
-   │  PolicyEngine  ·  0x8168eb562496A966f339a4bD165B924EeDce9873 │
+   │  PolicyEngine  ·  0xb05cE78AcEc33427cB0909C31116a6A1fDe60707 │
    │                                                              │
    │   _evaluate()   budget cap · per-tx cap · token bucket       │
    │                 payee allowlist · expiry · pause             │

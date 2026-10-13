@@ -123,3 +123,8 @@ form.edit.danger-zone {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+
+/* A full address in an editor note has no spaces to break at; let it wrap anywhere. */
+.edit .card-note code {
+  overflow-wrap: anywhere;
+}

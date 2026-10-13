@@ -41,7 +41,7 @@ remaining surface.
 
 | Package | State | Tests |
 |---|---|---|
-| `enforcement/` | Deployed + verified at `0x8168eb562496A966f339a4bD165B924EeDce9873` (block 55,621,174) | 47 — 37 unit, 7 invariant, 3 coverage |
+| `enforcement/` | v2 (many agents per owner, ADR 0010) deployed at `0xb05cE78AcEc33427cB0909C31116a6A1fDe60707` (block 66,992,587). v1 remains at `0x8168eb562496A966f339a4bD165B924EeDce9873` | 59: 49 unit, 9 invariant, 1 coverage harness |
 | `shared/` | Chain config, reason codes, amounts, ABI. Every TS package imports it | 54 |
 | `agent/` | 7 tools, 5 failure classes, nonce queue, velocity back-off, unstick, gas health | 23 + `selftest.ts` (live chain) |
 | `dashboard/` | 4 pages, owner signs in-browser, refusals visible, no database | 20 |

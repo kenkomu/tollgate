@@ -204,12 +204,13 @@ export const MAX_LOG_BLOCK_RANGE = 5_000n;
 export const MAX_HISTORY_BLOCKS = 400_000n;
 
 /**
- * Block in which the current PolicyEngine was deployed.
+ * Block in which the current PolicyEngine was deployed: v2, many agents per owner (ADR 0010),
+ * at 0xb05cE78AcEc33427cB0909C31116a6A1fDe60707 on testnet.
  *
  * Every log query starts here rather than at genesis. Override with
  * POLICY_ENGINE_DEPLOY_BLOCK when pointing at a different deployment.
  */
-export const POLICY_ENGINE_DEPLOY_BLOCK = 55_621_174n;
+export const POLICY_ENGINE_DEPLOY_BLOCK = 66_992_587n;
 
 /**
  * Fees that clear Arc's floor.
