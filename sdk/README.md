@@ -43,6 +43,17 @@ With no display it falls back to the inbox below.
 
 The Glove shapes follow Glove's public docs and have not been run against a live Glove install.
 
+## Vercel AI SDK
+
+```ts
+import {aiSdkTools} from "@tollgate/sdk/ai-sdk";
+const result = await generateText({model, tools: aiSdkTools(client, {serviceUrl}), prompt});
+```
+
+Plain tool objects (`description`, `inputSchema`, `execute`), so no dependency on `ai`. Pass
+`legacy: true` for AI SDK v4, which named the schema `parameters`. Not yet run against a live
+install.
+
 ## Approval inbox
 
 `ApprovalInbox` files a request with the Tollgate service (which pushes it to the owner's phone)

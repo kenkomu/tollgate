@@ -121,3 +121,14 @@ describe("Glove inline approval", () => {
     assert.match(result.data.message, /Request id: req-1/);
   });
 });
+
+describe("AI SDK adapter", () => {
+  it("exposes every tool with a schema, and returns refusals as text rather than throwing", async () => {
+    const {aiSdkTools} = await import("../src/ai-sdk.ts");
+    const tools = aiSdkTools(fakeClient(new Set()), {owner: OWNER, serviceUrl: base});
+    assert.ok(tools.pay && tools.check_payment && tools.request_payee_approval);
+    assert.equal(tools.pay.inputSchema.safeParse({address: "0x1", amount: "1"}).success, true);
+    const text = await tools.pay.execute({address: "not-an-address", amount: "1"} as never);
+    assert.match(text, /Not a valid address/);
+  });
+});

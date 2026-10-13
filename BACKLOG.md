@@ -59,8 +59,8 @@ inventory. Both were reconciled against the source tree on 2026-08-09.
 
 - [x] **Package the SDK.** `TollgateClient` now lives in `sdk/` as `@tollgate/sdk`. Not yet
       published to npm.
-- [~] **Framework adapters** — MCP server and Glove tools done; LangChain and Vercel AI SDK
-      still to do.
+- [~] **Framework adapters** — MCP server, Glove and Vercel AI SDK done; LangChain still to
+      do. Glove and AI SDK shapes follow their docs and are not yet run against live installs.
 - [x] **Deterministic attacker script.** `pnpm attack` holds the real agent key and runs
       eleven evasions in a fixed order (unknown payee, per-payment and budget overruns, burst,
       paying the contract, self-allowlisting, raising caps, unpausing, re-binding, direct

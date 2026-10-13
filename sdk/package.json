@@ -13,7 +13,8 @@
     ".": "./src/index.ts",
     "./tools": "./src/tools.ts",
     "./glove": "./src/glove.ts",
-    "./mcp": "./src/mcp.ts"
+    "./mcp": "./src/mcp.ts",
+    "./ai-sdk": "./src/ai-sdk.ts"
   },
   "bin": {
     "tollgate-mcp": "./src/mcp-server.ts"

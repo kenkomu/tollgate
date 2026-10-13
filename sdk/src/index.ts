@@ -4,3 +4,4 @@ export {createTools, type ToolOptions, type TollgateTool, type TollgateTools, ty
 export {ApprovalInbox, type ApprovalStatus, type ApprovalTicket} from "./approvals.ts";
 export {gloveTools, type GloveOptions, type ApprovalCardData, type ApprovalCardResult, type GloveDisplay} from "./glove.ts";
 export {createMcpServer} from "./mcp.ts";
+export {aiSdkTools} from "./ai-sdk.ts";
