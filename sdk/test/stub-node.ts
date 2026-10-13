@@ -25,6 +25,7 @@ import {MIN_GAS_PRICE_WEI, Reason, policyEngineAbi, usdc} from "@tollgate/shared
 
 export interface StubPolicy {
   agent: Address;
+  owner: Address;
   expiry: bigint;
   paused: boolean;
   exists: boolean;
@@ -45,6 +46,8 @@ export interface StubState {
   /** What simulating `trySpend` answers — deliberately separable from the above. */
   simulateReason: Reason;
   policy: StubPolicy;
+  /** What `policyOf(agent)` answers. 0n means the key is unbound. */
+  policyId: bigint;
   owner: Address;
   /** `null` means "no receipt yet", which is what an unconfirmed transaction looks like. */
   receiptStatus: "success" | "reverted" | null;
@@ -70,6 +73,7 @@ export const TX_HASH = `0x${"ab".repeat(32)}` as Hex;
 export function stubPolicy(overrides: Partial<StubPolicy> = {}): StubPolicy {
   return {
     agent: "0x0000000000000000000000000000000000000000" as Address,
+    owner: OWNER,
     expiry: 0n,
     paused: false,
     exists: true,
@@ -90,6 +94,7 @@ export function stubState(overrides: Partial<StubState> = {}): StubState {
     checkReason: Reason.OK,
     simulateReason: Reason.OK,
     policy: stubPolicy(),
+    policyId: 1n,
     owner: OWNER,
     receiptStatus: "success",
     gasEstimate: 97_846n,
@@ -265,6 +270,13 @@ export function stubTransport(state: StubState): Transport {
                 abi: policyEngineAbi,
                 functionName: "getPolicy",
                 result: state.policy,
+              });
+
+            case "policyOf":
+              return encodeFunctionResult({
+                abi: policyEngineAbi,
+                functionName: "policyOf",
+                result: state.policyId,
               });
 
             case "ownerOf":

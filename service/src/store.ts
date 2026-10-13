@@ -24,6 +24,9 @@ export interface ApprovalRow {
   payee: Address;
   amount: string;
   why: string;
+  /** Which policy (agent) the payee is wanted for. Null on requests filed before ADR 0010. */
+  policyId: string | null;
+  agent: Address | null;
   requestedAt: number;
   resolvedAt: number | null;
   outcome: "approved" | "declined" | null;
@@ -66,8 +69,8 @@ export class Store {
     const insert = this.#db.prepare(`
       INSERT OR IGNORE INTO events
         (tx_hash, log_index, kind, owner, agent, payee, amount, spent_total, reason,
-         detail_label, detail_values, previous_agent, block_number, block_time)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         detail_label, detail_values, previous_agent, policy_id, block_number, block_time)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     let written = 0;
@@ -92,6 +95,7 @@ export class Store {
           // caps and rates, and a type that can round is not one money goes in.
           event.detail ? event.detail.values.map(String).join(",") : null,
           event.previousAgent?.toLowerCase() ?? null,
+          asText(event.policyId),
           Number(event.blockNumber),
           event.timestamp,
         );
@@ -158,7 +162,44 @@ export class Store {
                 .map((part) => BigInt(part)),
             },
       previousAgent: (row.previous_agent as Address | null) ?? undefined,
+      policyId: asBigint(row.policy_id),
     }));
+  }
+
+  /**
+   * Point the index at a contract, dropping everything indexed from a different one.
+   *
+   * The events table and cursor describe one deployment. After a redeploy (ADR 0010 was
+   * one) the old rows would mix two contracts' histories and the cursor would sit past the
+   * new contract's first block, silently skipping it. Both are rebuildable from chain, so they
+   * are dropped; approvals, devices and delivery records are ours alone and are kept.
+   *
+   * Returns true when the index was reset.
+   */
+  bindEngine(engine: Address): boolean {
+    const row = this.#db.prepare("SELECT value FROM meta WHERE key = 'engine'").get() as {value: string} | undefined;
+    const next = engine.toLowerCase();
+    if (row?.value === next) return false;
+
+    const hadHistory = row !== undefined || this.eventCount() > 0 || this.lastIndexedBlock() !== null;
+    this.#db.exec("BEGIN");
+    try {
+      if (hadHistory) {
+        this.#db.exec("DELETE FROM events");
+        this.#db.exec("DELETE FROM cursor");
+      }
+      this.#db
+        .prepare(
+          `INSERT INTO meta (key, value) VALUES ('engine', ?)
+           ON CONFLICT (key) DO UPDATE SET value = excluded.value`,
+        )
+        .run(next);
+      this.#db.exec("COMMIT");
+    } catch (error) {
+      this.#db.exec("ROLLBACK");
+      throw error;
+    }
+    return hadHistory;
   }
 
   eventCount(): number {
@@ -219,22 +260,35 @@ export class Store {
    * An agent that asks twice must not queue twice — the owner should see one decision to
    * make, not a growing list of the same one.
    */
-  requestApproval(input: Omit<ApprovalRow, "id" | "requestedAt" | "resolvedAt" | "outcome">): ApprovalRow {
+  requestApproval(
+    request: Omit<ApprovalRow, "id" | "requestedAt" | "resolvedAt" | "outcome" | "policyId" | "agent"> & {
+      policyId?: string | null;
+      agent?: Address | null;
+    },
+  ): ApprovalRow {
+    const input = {...request, policyId: request.policyId ?? null, agent: request.agent ?? null};
+    // One open request per payee *per policy*: two agents wanting the same supplier are two
+    // decisions, because allowlists are per policy (ADR 0010).
     const existing = this.#db
       .prepare(
-        `SELECT * FROM approvals WHERE owner = ? AND payee = ? AND resolved_at IS NULL LIMIT 1`,
+        `SELECT * FROM approvals
+         WHERE owner = ? AND payee = ? AND COALESCE(policy_id, '') = ? AND resolved_at IS NULL LIMIT 1`,
       )
-      .get(input.owner.toLowerCase(), input.payee.toLowerCase()) as Record<string, unknown> | undefined;
+      .get(input.owner.toLowerCase(), input.payee.toLowerCase(), input.policyId ?? "") as
+      | Record<string, unknown>
+      | undefined;
     if (existing) return toApproval(existing);
 
-    const id = `${Date.now().toString(36)}-${input.payee.slice(2, 10).toLowerCase()}`;
+    // The policy is part of the id: two agents can ask for the same payee in the same
+    // millisecond, and those are two requests.
+    const id = `${Date.now().toString(36)}-${input.payee.slice(2, 10).toLowerCase()}${input.policyId ? `-p${input.policyId}` : ""}`;
     const requestedAt = Date.now();
 
     this.#db
       .prepare(
         `INSERT INTO approvals
-           (id, owner, service_id, service_name, payee, amount, why, requested_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+           (id, owner, service_id, service_name, payee, amount, why, policy_id, agent, requested_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         id,
@@ -244,6 +298,8 @@ export class Store {
         input.payee.toLowerCase(),
         input.amount,
         input.why,
+        input.policyId,
+        input.agent?.toLowerCase() ?? null,
         requestedAt,
       );
 
@@ -319,6 +375,8 @@ function toApproval(row: Record<string, unknown>): ApprovalRow {
     payee: row.payee as Address,
     amount: String(row.amount),
     why: String(row.why),
+    policyId: row.policy_id === null || row.policy_id === undefined ? null : String(row.policy_id),
+    agent: (row.agent as Address | null) ?? null,
     requestedAt: Number(row.requested_at),
     resolvedAt: row.resolved_at === null ? null : Number(row.resolved_at),
     outcome: (row.outcome as "approved" | "declined" | null) ?? null,

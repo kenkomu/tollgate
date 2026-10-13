@@ -1,0 +1,111 @@
+/* Many agents per owner (ADR 0010): the switcher and the fleet card. */
+
+.agent-switcher {
+  margin: -6px 0 18px;
+}
+
+.agent-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ok);
+  flex: none;
+}
+
+/* Never colour alone: the stopped dot is hollow as well as red. */
+.agent-dot.stopped {
+  background: transparent;
+  border: 2px solid var(--stop);
+}
+
+.fleet-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.fleet-add {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.fleet-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.fleet-row + .fleet-row {
+  border-top: 1px solid var(--hair);
+}
+
+.fleet-link {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  grid-template-areas: "name key left status" "bar bar bar bar";
+  align-items: center;
+  gap: 8px 14px;
+  padding: 12px 0;
+  text-decoration: none;
+  color: var(--ink);
+  min-height: 44px;
+}
+
+.fleet-name {
+  grid-area: name;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.fleet-row.current .fleet-name {
+  color: var(--accent);
+}
+
+.fleet-key {
+  grid-area: key;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.fleet-left {
+  grid-area: left;
+  font-size: 13px;
+}
+
+.fleet-link .chip {
+  grid-area: status;
+}
+
+.fleet-bar {
+  grid-area: bar;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.fleet-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+@media (max-width: 620px) {
+  .fleet-link {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "name status" "key left" "bar bar";
+  }
+}
+
+.feed-agent {
+  font-weight: 600;
+  color: var(--ink-2);
+}

@@ -137,3 +137,22 @@
   font-size: 12.5px;
   margin-top: 10px;
 }
+
+.approval-agent {
+  font-weight: 500;
+  color: var(--ink-2);
+}
+
+.approval-pick {
+  margin: 0 0 12px;
+}
+
+.approval-pick select {
+  background: var(--ground);
+  border: 1px solid var(--hair);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font: inherit;
+  padding: 9px 11px;
+  min-height: 44px;
+}

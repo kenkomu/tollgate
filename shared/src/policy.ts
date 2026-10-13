@@ -3,6 +3,8 @@ import type {Address} from "viem";
 /** Mirrors `PolicyEngine.Policy`. All amounts are 6-decimal USDC. */
 export interface Policy {
   agent: Address;
+  /** Whose wallet this policy spends from. */
+  owner: Address;
   /** Unix seconds. 0 means never expires. */
   expiry: bigint;
   paused: boolean;
@@ -20,6 +22,7 @@ export interface Policy {
 /** A `Spent` event, projected. Keyed for idempotent ingestion per §3.5. */
 export interface SpendRecord {
   owner: Address;
+  policyId: bigint;
   agent: Address;
   payee: Address;
   amount: bigint;
@@ -70,4 +73,14 @@ export function remainingBudget(policy: Policy): bigint {
 export function budgetUsedFraction(policy: Policy): number {
   if (policy.budgetCap === 0n) return 1;
   return Number((policy.spent * 10000n) / policy.budgetCap) / 10000;
+}
+
+/** A policy together with its id, which every owner write needs. */
+export interface PolicyWithId extends Policy {
+  id: bigint;
+}
+
+/** Display name for an agent until the owner gives it one: "Agent 3". */
+export function agentLabel(id: bigint): string {
+  return `Agent ${id}`;
 }

@@ -52,3 +52,4 @@
 
 /* Written after the skin, so already in its style. */
 @import "./styles/templates.css";
+@import "./styles/fleet.css";

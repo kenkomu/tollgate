@@ -12,7 +12,7 @@ import {HandIcon} from "./Icon.tsx";
  * Each request is an `ApprovalCard`, the same one a notification opens and a chat host
  * renders, with its own signing state, so approving one request never greys out another.
  */
-export function ApprovalQueue({requests}: {requests: ApprovalRequest[]}) {
+export function ApprovalQueue({requests, agents = []}: {requests: ApprovalRequest[]; agents?: bigint[]}) {
   return (
     <section className="card">
       <h2 className="card-title">
@@ -35,8 +35,10 @@ export function ApprovalQueue({requests}: {requests: ApprovalRequest[]}) {
           {requests.map((request) => (
             <ApprovalCard
               key={request.id}
+              agents={agents}
               request={{
                 requestId: request.id,
+                policyId: request.policyId ?? null,
                 payee: request.payee,
                 amount: request.amount,
                 why: request.why,

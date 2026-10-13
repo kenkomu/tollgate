@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS events (
   detail_label TEXT,
   detail_values TEXT,
   previous_agent TEXT,
+  policy_id    TEXT,
   block_number INTEGER NOT NULL,
   block_time   INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (tx_hash, log_index)
@@ -76,6 +77,8 @@ CREATE TABLE IF NOT EXISTS approvals (
   payee        TEXT NOT NULL,
   amount       TEXT NOT NULL,
   why          TEXT NOT NULL,
+  policy_id    TEXT,
+  agent        TEXT,
   requested_at INTEGER NOT NULL,
   resolved_at  INTEGER,
   outcome      TEXT
@@ -90,6 +93,12 @@ CREATE TABLE IF NOT EXISTS devices (
   platform      TEXT NOT NULL,
   registered_at INTEGER NOT NULL,
   last_seen_at  INTEGER NOT NULL
+);
+
+-- Facts about the index itself. Today one: which contract the events table describes.
+CREATE TABLE IF NOT EXISTS meta (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
 );
 
 -- What has already been delivered. This is the durable cursor ADR 0006 named as the thing
@@ -117,6 +126,13 @@ const MIGRATIONS: string[][] = [
     "ALTER TABLE events ADD COLUMN detail_label TEXT",
     "ALTER TABLE events ADD COLUMN detail_values TEXT",
     "ALTER TABLE events ADD COLUMN previous_agent TEXT",
+  ],
+  // v2 → v3: many agents per owner (ADR 0010). Events and approvals name their policy.
+  [
+    "ALTER TABLE events ADD COLUMN policy_id TEXT",
+    "ALTER TABLE approvals ADD COLUMN policy_id TEXT",
+    "ALTER TABLE approvals ADD COLUMN agent TEXT",
+    "CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)",
   ],
 ];
 

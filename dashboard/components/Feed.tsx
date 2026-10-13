@@ -1,5 +1,5 @@
 import Link from "next/link";
-import {explainToOwner, formatUsdc} from "@tollgate/shared";
+import {agentLabel, explainToOwner, formatUsdc} from "@tollgate/shared";
 import {describe, type Activity} from "../lib/activity.ts";
 import {shortAddress, txUrl} from "../lib/chain.ts";
 import {CheckIcon, ExternalIcon, SlidersIcon, StopIcon} from "./Icon.tsx";
@@ -7,7 +7,9 @@ import {CheckIcon, ExternalIcon, SlidersIcon, StopIcon} from "./Icon.tsx";
 /** Colour already carries the row's meaning; the glyph repeats it for anyone who can't see it. */
 function KindIcon({kind}: {kind: Activity["kind"]}) {
   if (kind === "paid") return <CheckIcon size={13} />;
-  if (kind === "refused" || kind === "paused" || kind === "payee-removed") return <StopIcon size={13} />;
+  if (kind === "refused" || kind === "paused" || kind === "fleet-paused" || kind === "payee-removed") {
+    return <StopIcon size={13} />;
+  }
   return <SlidersIcon size={13} />;
 }
 
@@ -34,12 +36,15 @@ export function Feed({
   entries,
   limit = 40,
   more = false,
+  showAgent = false,
 }: {
   entries: Activity[];
   /** How many rows to render. The overview shows a window; Activity shows the log. */
   limit?: number;
-  /** Offer a link to the full log, for the windowed case. */
-  more?: boolean;
+  /** Offer a link to the full log, for the windowed case: true for /activity, or a URL. */
+  more?: boolean | string;
+  /** Name the agent on each row, for a log that mixes several (ADR 0010). */
+  showAgent?: boolean;
 }) {
   if (entries.length === 0) {
     return (
@@ -61,8 +66,11 @@ export function Feed({
       <div className="feed" role="list" aria-label="Activity" aria-live="polite" aria-relevant="additions">
         {entries.slice(0, limit).map((entry) => {
           const stopped =
-            entry.kind === "refused" || entry.kind === "paused" || entry.kind === "payee-removed";
-          const neutral = entry.kind === "policy-created" || entry.kind === "resumed";
+            entry.kind === "refused" ||
+            entry.kind === "paused" ||
+            entry.kind === "fleet-paused" ||
+            entry.kind === "payee-removed";
+          const neutral = entry.kind === "policy-created" || entry.kind === "resumed" || entry.kind === "fleet-resumed";
           const rowClass = stopped ? "feed-row stopped" : neutral ? "feed-row neutral" : "feed-row";
 
           return (
@@ -85,6 +93,9 @@ export function Feed({
                 ) : null}
 
                 <div className="feed-sub">
+                  {showAgent && entry.policyId !== undefined ? (
+                    <span className="feed-agent">{agentLabel(entry.policyId)}</span>
+                  ) : null}
                   {entry.payee ? (
                     <span className="mono-addr">
                       {entry.kind === "refused" ? "blocked to" : "to"} {shortAddress(entry.payee)}
@@ -106,7 +117,7 @@ export function Feed({
 
       {more && entries.length > limit ? (
         <p className="card-more">
-          <Link href="/activity">
+          <Link href={typeof more === "string" ? more : "/activity"}>
             All {entries.length} events <ExternalIcon size={11} />
           </Link>
         </p>

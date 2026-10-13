@@ -35,6 +35,9 @@ const store = new Store(db);
  * same public endpoint as the dashboard it competes with the owner's live policy read for one
  * rate limit. Point INDEXER_RPC_URL at a second provider and the two stop interfering.
  */
+// The index describes one contract. After a redeploy it is rebuilt rather than mixed.
+if (store.bindEngine(engine)) console.log(`  index reset: now indexing ${engine}`);
+
 const indexer = new Indexer({engine, owner, store, rpcUrl: process.env.INDEXER_RPC_URL ?? process.env.ARC_RPC_URL});
 /**
  * Real push when a device has registered, the log otherwise.

@@ -21,6 +21,7 @@ export function ownerWrites() {
     revokePolicy: vi.fn(ok),
     createPolicy: vi.fn(ok),
     setPaused: vi.fn(ok),
+    setOwnerPaused: vi.fn(ok),
     approvePayee: vi.fn(ok),
     declineRequest: vi.fn(async () => ({ok: true})),
   };

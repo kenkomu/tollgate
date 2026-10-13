@@ -31,21 +31,43 @@ export function isConfigured(): boolean {
 }
 
 export interface LivePolicy extends Policy {
+  /** The policy's id on the contract. Every owner write names it. */
+  id: bigint;
   /** Rate-limit headroom right now, recomputed locally from the bucket. */
   headroom: bigint;
   /** When this was read, so the UI can say how old it is. */
   readAt: number;
 }
 
-export async function readPolicy(): Promise<LivePolicy> {
-  const raw = (await client.readContract({
-    address: ENGINE,
-    abi: policyEngineAbi,
-    functionName: "getPolicy",
-    args: [OWNER],
-  })) as unknown as Policy;
+/** Everything this owner runs: one policy per agent, plus the switch that stops them all. */
+export interface Fleet {
+  policies: LivePolicy[];
+  /** The owner-wide pause. While set, every agent is refused whatever its own policy says. */
+  fleetPaused: boolean;
+  readAt: number;
+}
 
-  return {...raw, headroom: availableNow(raw), readAt: Date.now()};
+export async function readFleet(): Promise<Fleet> {
+  const [ids, fleetPaused] = await Promise.all([
+    client.readContract({address: ENGINE, abi: policyEngineAbi, functionName: "policiesOf", args: [OWNER]}),
+    client.readContract({address: ENGINE, abi: policyEngineAbi, functionName: "ownerPaused", args: [OWNER]}),
+  ]);
+  const readAt = Date.now();
+  const policies = await Promise.all(
+    [...(ids as readonly bigint[])]
+      // Creation order, so "Agent 1" is always the same agent on every screen.
+      .sort((x, y) => (x < y ? -1 : x > y ? 1 : 0))
+      .map(async (id) => {
+        const raw = (await client.readContract({
+          address: ENGINE,
+          abi: policyEngineAbi,
+          functionName: "getPolicy",
+          args: [id],
+        })) as unknown as Policy;
+        return {...raw, id, headroom: availableNow(raw), readAt};
+      }),
+  );
+  return {policies, fleetPaused: fleetPaused as boolean, readAt};
 }
 
 export function explorerTx(hash: string): string {

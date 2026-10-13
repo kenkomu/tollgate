@@ -23,6 +23,7 @@ export type WriteResult = {ok: boolean; hash?: string; error?: string};
 
 type OwnerWrite =
   | "setPaused"
+  | "setOwnerPaused"
   | "setPayee"
   | "setCaps"
   | "setVelocity"
@@ -91,10 +92,12 @@ function humanise(error: unknown): string {
     return "That address cannot be a payee. The policy contract can never send what it receives, so paying it would destroy the funds.";
   }
   if (raw.includes("AgentAlreadyBound")) {
-    return "That key already belongs to another owner's policy. One agent key, one policy.";
+    return "That key already has a policy, yours or someone else's. One agent key, one policy: give each agent its own key.";
+  }
+  if (raw.includes("NotPolicyOwner")) {
+    return "That policy belongs to a different owner. You can only change your own agents.";
   }
   if (raw.includes("ZeroAddress")) return "That address is empty.";
-  if (raw.includes("PolicyExists")) return "This owner already has a policy. Edit it instead of creating another.";
   if (raw.includes("NoPolicy")) return "No policy exists for this owner yet.";
   if (raw.includes("insufficient funds")) {
     return "Not enough USDC in your wallet to cover gas for this transaction. Top up at faucet.circle.com.";
@@ -110,27 +113,39 @@ function humanise(error: unknown): string {
  * either — if this dashboard dies mid-click the owner can still call `setPaused` from any
  * wallet or block explorer.
  */
-export async function setPaused(paused: boolean): Promise<WriteResult> {
-  return attempt(() => send("setPaused", [paused]));
+export async function setPaused(policyId: bigint, paused: boolean): Promise<WriteResult> {
+  return attempt(() => send("setPaused", [policyId, paused]));
+}
+
+/**
+ * The fleet switch: every one of this owner's agents, in one transaction (ADR 0010).
+ * Resuming here does not lift an agent's own pause.
+ */
+export async function setOwnerPaused(paused: boolean): Promise<WriteResult> {
+  return attempt(() => send("setOwnerPaused", [paused]));
 }
 
 /** Add a payee to the on-chain allowlist. The only way past a PAYEE_NOT_ALLOWED refusal. */
-export async function approvePayee(payee: Address): Promise<WriteResult> {
-  const result = await attempt(() => send("setPayee", [payee, true]));
+export async function approvePayee(policyId: bigint, payee: Address, requestId?: string): Promise<WriteResult> {
+  const result = await attempt(() => send("setPayee", [policyId, payee, true]));
   // Only clear the request once the allowlisting is actually on chain. Clearing it first
   // would lose the ask if the owner declined the signature.
-  if (result.ok) await clearRequest(payee, "approved");
+  if (result.ok) await clearRequest({id: requestId, payee, policyId: policyId.toString()}, "approved");
   return result;
 }
 
 /** Remove a payee. Takes effect on the next attempted payment. */
-export async function revokePayee(payee: Address): Promise<WriteResult> {
-  return attempt(() => send("setPayee", [payee, false]));
+export async function revokePayee(policyId: bigint, payee: Address): Promise<WriteResult> {
+  return attempt(() => send("setPayee", [policyId, payee, false]));
 }
 
 /** Dismiss a request without allowlisting. The agent stays refused. */
-export async function declineRequest(payee: Address): Promise<{ok: boolean}> {
-  await clearRequest(payee, "declined");
+export async function declineRequest(
+  payee: Address,
+  policyId?: bigint,
+  requestId?: string,
+): Promise<{ok: boolean}> {
+  await clearRequest({id: requestId, payee, policyId: policyId?.toString()}, "declined");
   return {ok: true};
 }
 
@@ -139,8 +154,8 @@ export async function declineRequest(payee: Address): Promise<{ok: boolean}> {
 //////////////////////////////////////////////////////////////*/
 
 /** Lifetime budget and the ceiling on any single payment. */
-export async function setCaps(budgetCap: bigint, perTxCap: bigint): Promise<WriteResult> {
-  return attempt(() => send("setCaps", [budgetCap, perTxCap]));
+export async function setCaps(policyId: bigint, budgetCap: bigint, perTxCap: bigint): Promise<WriteResult> {
+  return attempt(() => send("setCaps", [policyId, budgetCap, perTxCap]));
 }
 
 /**
@@ -149,13 +164,17 @@ export async function setCaps(budgetCap: bigint, perTxCap: bigint): Promise<Writ
  * The contract settles the bucket at the old rate before the new one applies, so widening
  * the limit never retroactively grants headroom the agent had not earned.
  */
-export async function setVelocity(bucketCapacity: bigint, refillPerSecond: bigint): Promise<WriteResult> {
-  return attempt(() => send("setVelocity", [bucketCapacity, refillPerSecond]));
+export async function setVelocity(
+  policyId: bigint,
+  bucketCapacity: bigint,
+  refillPerSecond: bigint,
+): Promise<WriteResult> {
+  return attempt(() => send("setVelocity", [policyId, bucketCapacity, refillPerSecond]));
 }
 
 /** Unix seconds, or 0 for never. */
-export async function setExpiry(expiry: bigint): Promise<WriteResult> {
-  return attempt(() => send("setExpiry", [expiry]));
+export async function setExpiry(policyId: bigint, expiry: bigint): Promise<WriteResult> {
+  return attempt(() => send("setExpiry", [policyId, expiry]));
 }
 
 /**
@@ -166,13 +185,13 @@ export async function setExpiry(expiry: bigint): Promise<WriteResult> {
  * key worthless, not reading a Foundry guide. The old key is unbound in the same
  * transaction that binds the new one.
  */
-export async function setAgent(newAgent: Address): Promise<WriteResult> {
-  return attempt(() => send("setAgent", [newAgent]));
+export async function setAgent(policyId: bigint, newAgent: Address): Promise<WriteResult> {
+  return attempt(() => send("setAgent", [policyId, newAgent]));
 }
 
 /** Allowlist an address directly, rather than waiting for the agent to ask. */
-export async function addPayee(payee: Address): Promise<WriteResult> {
-  return attempt(() => send("setPayee", [payee, true]));
+export async function addPayee(policyId: bigint, payee: Address): Promise<WriteResult> {
+  return attempt(() => send("setPayee", [policyId, payee, true]));
 }
 
 /**
@@ -182,8 +201,8 @@ export async function addPayee(payee: Address): Promise<WriteResult> {
  * `approve` on the owner's behalf, and the owner revoking it themselves is the whole
  * non-custodial exit path. The UI says so next to the button.
  */
-export async function revokePolicy(): Promise<WriteResult> {
-  return attempt(() => send("revokePolicy", []));
+export async function revokePolicy(policyId: bigint): Promise<WriteResult> {
+  return attempt(() => send("revokePolicy", [policyId]));
 }
 
 /**
@@ -206,13 +225,21 @@ export async function createPolicy(params: {
     const {client, account} = await ownerWallet();
     const fees = await arcFees(publicClient);
 
-    // Exactly the budget, never max. If this contract is ever wrong, the blast radius is
-    // the outstanding allowance rather than the owner's whole balance — ADR 0001.
+    // The allowance is shared by every agent this owner runs (ADR 0010), so a new agent adds
+    // its budget to what is already approved. Setting it to the new budget alone would quietly
+    // cut the funding of every existing agent. Still exact, never max: if this contract is ever
+    // wrong, the blast radius is the outstanding allowance, not the whole balance (ADR 0001).
+    const current = await publicClient.readContract({
+      address: USDC_ADDRESS,
+      abi: erc20Abi,
+      functionName: "allowance",
+      args: [account, ENGINE],
+    });
     const approval = await client.writeContract({
       address: USDC_ADDRESS,
       abi: erc20Abi,
       functionName: "approve",
-      args: [ENGINE, params.budgetCap],
+      args: [ENGINE, current + params.budgetCap],
       chain: activeChain,
       account,
       ...fees,
@@ -230,7 +257,7 @@ export async function createPolicy(params: {
   });
 }
 
-/** Top up (or cut) the allowance behind an existing policy. */
+/** Top up (or cut) the allowance, which every one of the owner's agents draws on. */
 export async function setAllowance(amount: bigint): Promise<WriteResult> {
   return attempt(async () => {
     const {client, account} = await ownerWallet();

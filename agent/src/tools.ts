@@ -77,8 +77,8 @@ export function createTollgateTools(client: TollgateClient, owner: Address, emit
         message: result.message,
       });
 
-      const available = await client.availableNow(owner);
-      const budget = await client.remainingBudget(owner);
+      const available = await client.availableNow();
+      const budget = await client.remainingBudget();
 
       return text(
         [
@@ -266,6 +266,9 @@ export function createTollgateTools(client: TollgateClient, owner: Address, emit
       if (!service) return text(`No such service: ${serviceId}`);
 
       const where = await fileRequest({
+        // Allowlists are per agent, so the owner must know which agent is asking.
+        policyId: (await client.policyId()).toString(),
+        agent: client.agentAddress,
         serviceId: service.id,
         serviceName: service.name,
         payee: service.payee,

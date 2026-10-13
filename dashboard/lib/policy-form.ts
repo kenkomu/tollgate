@@ -132,16 +132,23 @@ export function checkExpiry(value: string, now = Date.now()): Check {
   return null;
 }
 
+/**
+ * The allowance against what the agents can still spend. `budgetCap - spent` for one policy;
+ * for a fleet, pass the sum of every policy's remaining budget as `budgetCap` and 0 as `spent`.
+ */
 export function checkAllowance(amount: bigint | null, budgetCap: bigint, spent: bigint): Check {
   if (amount === null) return {level: "error", message: "Needs a number, up to six decimals"};
   const left = budgetCap > spent ? budgetCap - spent : 0n;
   if (amount < left) {
-    return {level: "warning", message: `Below the ${fromUsdc(left)} left in the budget, so the allowance is what will bind first.`};
+    return {
+      level: "warning",
+      message: `Below the ${fromUsdc(left)} your agents can still spend, so the allowance is what will bind first.`,
+    };
   }
   if (amount > left && left > 0n) {
     return {
       level: "warning",
-      message: `More than the ${fromUsdc(left)} the policy can still spend. The extra protects nothing and is exposed if this contract is ever wrong.`,
+      message: `More than the ${fromUsdc(left)} your agents can still spend. The extra protects nothing and is exposed if this contract is ever wrong.`,
     };
   }
   return null;

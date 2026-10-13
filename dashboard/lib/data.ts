@@ -1,6 +1,6 @@
 import {cache} from "react";
 import type {Address} from "viem";
-import type {Policy} from "@tollgate/shared";
+import {auditFromActivity, type AuditLog, type PolicyWithId} from "@tollgate/shared";
 import {readAuditLog} from "./activity.ts";
 import {listPending} from "./approvals.ts";
 import {ENGINE, OWNER, abi, publicClient} from "./chain.ts";
@@ -22,17 +22,52 @@ export const auditFor = cache(readAuditLog);
 
 export const pendingApprovals = cache(listPending);
 
-export const policyFor = cache(async (owner: Address): Promise<Policy> => {
-  const raw = await publicClient.readContract({
-    address: ENGINE,
-    abi,
-    functionName: "getPolicy",
-    args: [owner],
-  });
-  return raw as unknown as Policy;
+/** Everything one owner runs: a policy per agent, and the switch that stops them all. */
+export interface Fleet {
+  /** In creation order, so "Agent 1" is the same agent on every page. */
+  policies: PolicyWithId[];
+  /** The owner-wide pause (ADR 0010). While set, every agent is refused. */
+  fleetPaused: boolean;
+}
+
+export const fleetFor = cache(async (owner: Address): Promise<Fleet> => {
+  const [ids, fleetPaused] = await Promise.all([
+    publicClient.readContract({address: ENGINE, abi, functionName: "policiesOf", args: [owner]}),
+    publicClient.readContract({address: ENGINE, abi, functionName: "ownerPaused", args: [owner]}),
+  ]);
+  const sorted = [...(ids as readonly bigint[])].sort((x, y) => (x < y ? -1 : x > y ? 1 : 0));
+  const policies = await Promise.all(
+    sorted.map(async (id) => {
+      const raw = await publicClient.readContract({address: ENGINE, abi, functionName: "getPolicy", args: [id]});
+      return {...(raw as unknown as Omit<PolicyWithId, "id">), id};
+    }),
+  );
+  return {policies, fleetPaused: fleetPaused as boolean};
 });
 
-/** The owner this deployment is configured for. One policy per owner, per ADR 0004. */
+/**
+ * The agent a page is about: the one named in `?agent=`, or the first.
+ *
+ * An id that is not this owner's (mistyped, revoked, someone else's) falls back to the first
+ * rather than erroring, and the switcher shows which one is on screen, so nobody edits an
+ * agent they did not mean to.
+ */
+export function pickPolicy(fleet: Fleet, agent: string | string[] | undefined): PolicyWithId | null {
+  const wanted = typeof agent === "string" && /^\d+$/.test(agent) ? BigInt(agent) : null;
+  return fleet.policies.find((p) => p.id === wanted) ?? fleet.policies[0] ?? null;
+}
+
+/** One agent's slice of the owner's history: its own events plus owner-wide ones. */
+export function scopeAudit(audit: AuditLog, policyId: bigint): AuditLog {
+  return {...auditFromActivity(audit.entries, policyId), partialFrom: audit.partialFrom};
+}
+
+/** What the agents can still spend, all together: what the shared allowance needs to cover. */
+export function fleetRemaining(fleet: Fleet): bigint {
+  return fleet.policies.reduce((sum, p) => sum + (p.budgetCap > p.spent ? p.budgetCap - p.spent : 0n), 0n);
+}
+
+/** The owner this deployment is configured for. They may run many agents (ADR 0010). */
 export const owner = OWNER;
 
 /**
@@ -58,8 +93,8 @@ async function attempt<T>(work: () => Promise<T>): Promise<Read<T>> {
   }
 }
 
-export function tryPolicy(who: Address): Promise<Read<Policy>> {
-  return attempt(() => policyFor(who));
+export function tryFleet(who: Address): Promise<Read<Fleet>> {
+  return attempt(() => fleetFor(who));
 }
 
 export function tryAudit(who: Address): Promise<Read<Awaited<ReturnType<typeof auditFor>>>> {

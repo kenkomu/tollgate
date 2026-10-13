@@ -236,3 +236,47 @@ describe("owner policy changes survive the round trip", () => {
     assert.equal(store.activityFor(OWNER)[0]!.detail, undefined);
   });
 });
+
+describe("many agents per owner (ADR 0010)", () => {
+  const request = {owner: OWNER, serviceId: "s", serviceName: "S", payee: PAYEE, amount: "$1", why: "w"};
+
+  it("keeps one open request per payee per policy, not per owner", () => {
+    const a = store.requestApproval({...request, policyId: "1"});
+    const again = store.requestApproval({...request, policyId: "1"});
+    const b = store.requestApproval({...request, policyId: "2"});
+    assert.equal(again.id, a.id, "the same agent asking twice is one decision");
+    assert.notEqual(b.id, a.id, "another agent wanting the same payee is another decision");
+    assert.equal(store.approvalById(b.id)?.policyId, "2");
+  });
+
+  it("stores the policy on every event and reads it back", () => {
+    store.putEvents([event({policyId: 3n})]);
+    assert.equal(store.activityFor(OWNER)[0]?.policyId, 3n);
+  });
+
+  it("drops the index, and only the index, when pointed at another contract", () => {
+    assert.equal(store.bindEngine(ENGINE_A), false, "a fresh store has nothing to drop");
+    store.putEvents([event()]);
+    store.setLastIndexedBlock(10n);
+    store.requestApproval(request);
+    store.registerDevice({token: "t", owner: OWNER, platform: "android"});
+
+    assert.equal(store.bindEngine(ENGINE_A), false, "same contract: nothing changes");
+    assert.equal(store.eventCount(), 1);
+
+    assert.equal(store.bindEngine(ENGINE_B), true);
+    assert.equal(store.eventCount(), 0, "the old contract's history is gone");
+    assert.equal(store.lastIndexedBlock(), null, "and the walk restarts from the new deployment");
+    assert.equal(store.openApprovals(OWNER).length, 1, "requests are kept");
+    assert.equal(store.devicesFor(OWNER).length, 1, "devices are kept");
+  });
+
+  it("resets a pre-existing index that never recorded its contract", () => {
+    store.putEvents([event()]);
+    assert.equal(store.bindEngine(ENGINE_A), true);
+    assert.equal(store.eventCount(), 0);
+  });
+});
+
+const ENGINE_A = "0x00000000000000000000000000000000000000e1" as Address;
+const ENGINE_B = "0x00000000000000000000000000000000000000e2" as Address;

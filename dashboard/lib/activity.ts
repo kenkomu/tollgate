@@ -175,6 +175,9 @@ function reviveActivity(row: Record<string, unknown>): Activity {
     amount: big(row.amount),
     spentTotal: big(row.spentTotal),
     availableAfter: big(row.availableAfter),
+    // Without this every indexed row would belong to no agent, and per-agent views would
+    // show only the owner-wide events.
+    policyId: big(row.policyId),
     detail: detail ? {label: detail.label, values: detail.values.map((v) => BigInt(v))} : undefined,
   };
 }

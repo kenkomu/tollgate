@@ -26,6 +26,8 @@ export interface GloveDisplay {
 /** What the approval card receives as its slot data, and what it must resolve with. */
 export interface ApprovalCardData {
   requestId: string | null;
+  /** Which of the owner's policies (agents) the payee is for, as a decimal string. */
+  policyId: string;
   payee: Address;
   amount?: string;
   why: string;
@@ -45,7 +47,7 @@ export interface GloveOptions extends ToolOptions {
 }
 
 export function gloveTools(client: TollgateClient, options: GloveOptions = {}) {
-  const inbox = new ApprovalInbox({client, owner: options.owner, serviceUrl: options.serviceUrl});
+  const inbox = new ApprovalInbox({client, serviceUrl: options.serviceUrl});
 
   const tools = createTools(client, options).map((def) => ({
     name: def.name,
@@ -93,7 +95,13 @@ export function gloveTools(client: TollgateClient, options: GloveOptions = {}) {
           : envelope(false, "No one is in the chat and no Tollgate service is reachable. Tell the owner directly.");
       }
 
-      const data: ApprovalCardData = {requestId: ticket?.id ?? null, payee, amount: input.amount, why: input.why};
+      const data: ApprovalCardData = {
+        requestId: ticket?.id ?? null,
+        policyId: (ticket?.policyId ?? (await client.policyId())).toString(),
+        payee,
+        amount: input.amount,
+        why: input.why,
+      };
       let answer: ApprovalCardResult | undefined;
       try {
         answer = (await display.pushAndWait({input: data})) as ApprovalCardResult;
@@ -106,7 +114,7 @@ export function gloveTools(client: TollgateClient, options: GloveOptions = {}) {
       // Trust the chain, not the card. Give a just-signed transaction a moment to land.
       const status = ticket
         ? await inbox.waitFor(ticket, {timeoutMs: options.inlineWaitMs ?? 30_000, intervalMs: 1_500})
-        : (await client.isAllowedPayee(await client.owner(), payee))
+        : (await client.isAllowedPayee(payee))
           ? "approved"
           : "pending";
       return status === "approved"

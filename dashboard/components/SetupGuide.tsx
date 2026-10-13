@@ -95,7 +95,7 @@ export function PreSetup() {
 }
 
 /** With a policy: read the allowance and payee list, hide when finished. */
-export async function SetupGuide({owner, budgetCap}: {owner: Address; budgetCap: bigint}) {
+export async function SetupGuide({owner, needed}: {owner: Address; needed: bigint}) {
   const [allowance, audit] = await Promise.all([
     publicClient
       .readContract({address: USDC_ADDRESS, abi: erc20Abi, functionName: "allowance", args: [owner, ENGINE]})
@@ -104,7 +104,8 @@ export async function SetupGuide({owner, budgetCap}: {owner: Address; budgetCap:
     tryAudit(owner),
   ]);
 
-  const allowanceOk = allowance !== null && allowance >= budgetCap && budgetCap > 0n;
+  // `needed` is what every agent together can still spend: the allowance is shared.
+  const allowanceOk = allowance !== null && allowance >= needed && needed > 0n;
   // Partial history can miss an old approval, so it does not count as knowing.
   const payeesKnown = audit.ok && audit.value.partialFrom === undefined;
   const hasPayee = audit.ok && audit.value.allowedPayees.length > 0;
@@ -121,8 +122,8 @@ export async function SetupGuide({owner, budgetCap}: {owner: Address; budgetCap:
         {
           title: "Approve exactly the budget",
           detail: allowanceOk
-            ? "The allowance covers the budget."
-            : "The allowance is below the budget, so payments will be refused. Top it up.",
+            ? "The allowance covers what your agents can still spend."
+            : "The allowance is below what your agents can still spend, so payments will be refused once it runs out. Top it up.",
           done: allowanceOk,
           href: "/policy",
           cta: "Fix the allowance",

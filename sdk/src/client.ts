@@ -306,8 +306,7 @@ export class TollgateClient {
     if (waitForVelocity) {
       const pre = await this.check(payee, amount);
       if (pre.reason === Reason.EXCEEDS_VELOCITY) {
-        const owner = await this.owner();
-        const policy = await this.getPolicy(owner);
+        const policy = await this.getPolicy();
         const seconds = secondsUntilAvailable(
           availableNow(policy),
           amount,
@@ -390,9 +389,7 @@ export class TollgateClient {
 
   /** Lifetime spend, read back from chain rather than inferred from a return value. */
   private async remainingBudgetToSpent(): Promise<bigint> {
-    const owner = await this.owner();
-    const policy = await this.getPolicy(owner);
-    return policy.spent;
+    return (await this.getPolicy()).spent;
   }
 
   /**
@@ -413,13 +410,28 @@ export class TollgateClient {
     }
   }
 
-  /** The policy governing this agent, as stored on chain. */
-  async getPolicy(owner: Address): Promise<Policy> {
+  /**
+   * The id of the policy this agent key is bound to, or 0n if it is unbound.
+   *
+   * Not cached: rotating the key away unbinds it on chain, and an agent that kept a stale id
+   * would describe a policy it no longer spends under.
+   */
+  async policyId(): Promise<bigint> {
+    return (await this.#publicClient.readContract({
+      address: this.engine,
+      abi: policyEngineAbi,
+      functionName: "policyOf",
+      args: [this.agentAddress],
+    })) as bigint;
+  }
+
+  /** A policy as stored on chain. Defaults to the one governing this agent. */
+  async getPolicy(policyId?: bigint): Promise<Policy> {
     const p = await this.#publicClient.readContract({
       address: this.engine,
       abi: policyEngineAbi,
       functionName: "getPolicy",
-      args: [owner],
+      args: [policyId ?? (await this.policyId())],
     });
     return p as unknown as Policy;
   }
@@ -434,33 +446,37 @@ export class TollgateClient {
     })) as Address;
   }
 
-  /** Is this payee on the owner's on-chain allowlist? The only authority on "approved". */
-  async isAllowedPayee(owner: Address, payee: Address): Promise<boolean> {
+  /**
+   * Is this payee on the policy's on-chain allowlist? The only authority on "approved".
+   * Allowlists are per policy (ADR 0010): approved for another of the owner's agents does
+   * not mean approved for this one.
+   */
+  async isAllowedPayee(payee: Address, policyId?: bigint): Promise<boolean> {
     return (await this.#publicClient.readContract({
       address: this.engine,
       abi: policyEngineAbi,
       functionName: "isAllowedPayee",
-      args: [owner, payee],
+      args: [policyId ?? (await this.policyId()), payee],
     })) as boolean;
   }
 
   /** Velocity headroom right now, in 6-decimal USDC. */
-  async availableNow(owner: Address): Promise<bigint> {
+  async availableNow(policyId?: bigint): Promise<bigint> {
     return (await this.#publicClient.readContract({
       address: this.engine,
       abi: policyEngineAbi,
       functionName: "availableNow",
-      args: [owner],
+      args: [policyId ?? (await this.policyId())],
     })) as bigint;
   }
 
   /** Remaining lifetime budget, in 6-decimal USDC. */
-  async remainingBudget(owner: Address): Promise<bigint> {
+  async remainingBudget(policyId?: bigint): Promise<bigint> {
     return (await this.#publicClient.readContract({
       address: this.engine,
       abi: policyEngineAbi,
       functionName: "remainingBudget",
-      args: [owner],
+      args: [policyId ?? (await this.policyId())],
     })) as bigint;
   }
 

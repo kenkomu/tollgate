@@ -10,7 +10,7 @@ import {
   Text,
   View,
 } from "react-native";
-import {explainToOwner, formatUsdc, formatUsdcApprox, type Activity} from "@tollgate/shared";
+import {agentLabel, explainToOwner, formatUsdc, formatUsdcApprox, type Activity} from "@tollgate/shared";
 import {
   Notifications,
   notifyLocally,
@@ -32,7 +32,7 @@ import {
   timeAgo,
 } from "./src/components.tsx";
 import {KillSwitch} from "./src/KillSwitch.tsx";
-import {isConfigured, readPolicy, type LivePolicy} from "./src/chain.ts";
+import {isConfigured, readFleet, type Fleet, type LivePolicy} from "./src/chain.ts";
 import {
   freshnessOf,
   getActivity,
@@ -64,7 +64,9 @@ export default function App() {
   const t = useTheme();
   const [tab, setTab] = useState<Tab>("now");
 
-  const [policy, setPolicy] = useState<LivePolicy | null>(null);
+  const [fleet, setFleet] = useState<Fleet | null>(null);
+  /** Which agent the Now screen shows, by policy id. Null means the first. */
+  const [selected, setSelected] = useState<string | null>(null);
   const [health, setHealth] = useState<Health | null>(null);
   const [entries, setEntries] = useState<Activity[]>([]);
   const [approvals, setApprovals] = useState<Approval[]>([]);
@@ -95,9 +97,9 @@ export default function App() {
    */
   const load = useCallback(async () => {
     const readChain = isConfigured()
-      ? readPolicy().then(
-          (p) => {
-            setPolicy(p);
+      ? readFleet().then(
+          (f) => {
+            setFleet(f);
             setChainDown(false);
           },
           () => setChainDown(true),
@@ -176,6 +178,9 @@ export default function App() {
   }, []);
 
   const fresh = health ? freshnessOf(health) : null;
+  const policy = fleet ? (fleet.policies.find((p) => p.id.toString() === selected) ?? fleet.policies[0] ?? null) : null;
+  // Stopped means stopped for this agent, whichever switch did it.
+  const stopped = Boolean(fleet?.fleetPaused || policy?.paused);
 
   return (
     <SafeAreaView style={[styles.safe, {backgroundColor: t.bg}]}>
@@ -186,9 +191,9 @@ export default function App() {
           Tollgate<Text style={{color: t.accent}}>.</Text>
         </Text>
         {policy ? (
-          <View style={[styles.chip, {backgroundColor: policy.paused ? t.stopSoft : t.okSoft}]}>
-            <Text style={{color: policy.paused ? t.stop : t.ok, fontSize: 11.5, fontWeight: "600"}}>
-              {policy.paused ? "Stopped" : "Active"}
+          <View style={[styles.chip, {backgroundColor: stopped ? t.stopSoft : t.okSoft}]}>
+            <Text style={{color: stopped ? t.stop : t.ok, fontSize: 11.5, fontWeight: "600"}}>
+              {fleet?.fleetPaused ? "All stopped" : stopped ? "Stopped" : "Active"}
             </Text>
           </View>
         ) : null}
@@ -219,15 +224,21 @@ export default function App() {
                 detail={
                   fresh.secondsBehind !== null && !fresh.current
                     ? `history ${fresh.secondsBehind}s behind`
-                    : policy
-                      ? `limits read ${timeAgo(Math.floor(policy.readAt / 1000))}`
+                    : fleet
+                      ? `limits read ${timeAgo(Math.floor(fleet.readAt / 1000))}`
                       : undefined
                 }
               />
             ) : null}
 
             {tab === "now" ? (
-              <NowScreen policy={policy} push={push} onRefresh={() => void load()} />
+              <NowScreen
+                fleet={fleet}
+                policy={policy}
+                onSelect={setSelected}
+                push={push}
+                onRefresh={() => void load()}
+              />
             ) : null}
             {tab === "approvals" ? (
               <ApprovalsScreen
@@ -311,50 +322,73 @@ function PushStatus({state}: {state: PushState | null}) {
 }
 
 function NowScreen({
+  fleet,
   policy,
+  onSelect,
   push,
   onRefresh,
 }: {
+  fleet: Fleet | null;
   policy: LivePolicy | null;
+  onSelect: (id: string) => void;
   push: PushState | null;
   onRefresh: () => void;
 }) {
   const t = useTheme();
-  if (!policy) return <ActivityIndicator style={{marginTop: 40}} />;
+  if (!fleet) return <ActivityIndicator style={{marginTop: 40}} />;
 
-  if (!policy.exists) {
+  if (!policy) {
     return (
-      <Card>
-        <Title>No policy yet</Title>
-        <Note>
-          This owner has no policy on the contract. Create one from the web dashboard — it takes
-          two transactions and about thirty seconds.
-        </Note>
-      </Card>
+      <>
+        {/* The fleet switch works with no agents at all, so it stays reachable here too. */}
+        <KillSwitch paused={fleet.fleetPaused} onDone={onRefresh} />
+        <Card>
+          <Title>No agents yet</Title>
+          <Note>
+            This owner has no policy on the contract. Create one from the web dashboard. It takes
+            two transactions and about thirty seconds.
+          </Note>
+        </Card>
+      </>
     );
   }
 
+  const stopped = fleet.fleetPaused || policy.paused;
+  const many = fleet.policies.length > 1;
+
   return (
     <>
+      {many ? (
+        <Chips
+          options={fleet.policies.map((p) => ({
+            id: p.id.toString(),
+            label: `${agentLabel(p.id)}${p.paused ? " · stopped" : ""}`,
+          }))}
+          value={policy.id.toString()}
+          onChange={onSelect}
+        />
+      ) : null}
       <Hero
-        stopped={policy.paused}
-        badge={policy.paused ? "Stopped" : "Enforcing"}
-        headline={policy.paused ? "$0.00 can move" : `${formatUsdc(policy.budgetCap - policy.spent)} left`}
+        stopped={stopped}
+        badge={fleet.fleetPaused ? "All stopped" : policy.paused ? "Stopped" : "Enforcing"}
+        headline={stopped ? "$0.00 can move" : `${formatUsdc(policy.budgetCap - policy.spent)} left`}
         line={
-          policy.paused
-            ? "Every payment is refused at the contract until you resume."
-            : `of ${formatUsdc(policy.budgetCap)} in total, checked on chain before any money moves.`
+          fleet.fleetPaused
+            ? "Every agent is refused at the contract until you resume them."
+            : policy.paused
+              ? "Every payment from this agent is refused at the contract until you resume it."
+              : `of ${formatUsdc(policy.budgetCap)} in total${many ? ` for ${agentLabel(policy.id)}` : ""}, checked on chain before any money moves.`
         }
         stats={[
           {label: "moved so far", value: formatUsdc(policy.spent)},
           {label: "max per payment", value: formatUsdc(policy.perTxCap)},
         ]}
       />
-      <KillSwitch paused={policy.paused} onDone={onRefresh} />
+      <KillSwitch paused={fleet.fleetPaused} agents={fleet.policies.length} onDone={onRefresh} />
       <PushStatus state={push} />
 
       <Card>
-        <Title>The leash</Title>
+        <Title>{many ? `${agentLabel(policy.id)}'s leash` : "The leash"}</Title>
         <Note>
           Read from the contract by this phone, not from our server. These are the limits that
           will be enforced.
@@ -453,13 +487,17 @@ function ApprovalsScreen({
           </View>
           <Text style={[styles.k, mono, {color: t.muted, marginBottom: 8}]}>
             {shortAddress(request.payee)}
+            {request.policyId ? ` · for ${agentLabel(BigInt(request.policyId))}` : ""}
           </Text>
           <Note>{request.why}</Note>
 
           {/* Said on the screen, not just in a comment: tapping approve does not pay anybody. */}
           <Text style={[styles.k, {color: t.muted, marginBottom: 10}]}>
-            Approving records your decision. The payee is only allowlisted once you sign
-            setPayee from your wallet — until then the agent stays refused.
+            Approving records your decision. The payee is only allowlisted once you sign{" "}
+            <Text style={mono}>
+              setPayee({request.policyId ?? "agent id"}, {shortAddress(request.payee)}, true)
+            </Text>{" "}
+            from your wallet, or approve it on the web dashboard. Until then the agent stays refused.
           </Text>
 
           <Button

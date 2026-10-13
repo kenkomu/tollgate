@@ -18,7 +18,7 @@ const writes = vi.mocked(owner);
 
 describe("on mainnet", () => {
   it("every write needs an explicit acknowledgement first", async () => {
-    render(<AddPayeeEditor />);
+    render(<AddPayeeEditor policyId={1n} />);
     await userEvent.type(screen.getByLabelText(/^address/i), "0x2222222222222222222222222222222222222222");
 
     const add = screen.getByRole("button", {name: /allowlist/i});

@@ -14,7 +14,9 @@ const PAYEE = "0x00000000000000000000000000000000000000bb" as Address;
 function fakeClient(allowed: Set<string>) {
   return {
     owner: async () => OWNER,
-    isAllowedPayee: async (_owner: Address, payee: Address) => allowed.has(payee.toLowerCase()),
+    agentAddress: "0x00000000000000000000000000000000000a9e17" as Address,
+    policyId: async () => 7n,
+    isAllowedPayee: async (payee: Address, _policyId?: bigint) => allowed.has(payee.toLowerCase()),
   } as unknown as TollgateClient;
 }
 
@@ -89,7 +91,7 @@ describe("approval inbox", () => {
 
 describe("Glove inline approval", () => {
   const inline = (allowed: Set<string>) =>
-    gloveTools(fakeClient(allowed), {owner: OWNER, serviceUrl: base, inlineWaitMs: 100}).find((t) => t.name === "approve_payee_inline")!;
+    gloveTools(fakeClient(allowed), {serviceUrl: base, inlineWaitMs: 100}).find((t) => t.name === "approve_payee_inline")!;
 
   it("pushes a card with the request, and reports approval only once the chain agrees", async () => {
     const allowed = new Set<string>();
@@ -125,10 +127,36 @@ describe("Glove inline approval", () => {
 describe("AI SDK adapter", () => {
   it("exposes every tool with a schema, and returns refusals as text rather than throwing", async () => {
     const {aiSdkTools} = await import("../src/ai-sdk.ts");
-    const tools = aiSdkTools(fakeClient(new Set()), {owner: OWNER, serviceUrl: base});
+    const tools = aiSdkTools(fakeClient(new Set()), {serviceUrl: base});
     assert.ok(tools.pay && tools.check_payment && tools.request_payee_approval);
     assert.equal(tools.pay.inputSchema.safeParse({address: "0x1", amount: "1"}).success, true);
     const text = await tools.pay.execute({address: "not-an-address", amount: "1"} as never);
     assert.match(text, /Not a valid address/);
+  });
+});
+
+describe("approvals name the policy", () => {
+  it("files the agent's policy id with the request, so the owner approves for the right agent", async () => {
+    let filed: Record<string, unknown> = {};
+    const capture = createServer((req, res) => {
+      let body = "";
+      req.on("data", (c) => (body += c));
+      req.on("end", () => {
+        filed = JSON.parse(body);
+        res.statusCode = 201;
+        res.end(JSON.stringify({id: "x"}));
+      });
+    });
+    await new Promise<void>((resolve) => capture.listen(0, resolve));
+    const url = `http://127.0.0.1:${(capture.address() as AddressInfo).port}`;
+    try {
+      const inbox = new ApprovalInbox({client: fakeClient(new Set()), serviceUrl: url});
+      const ticket = await inbox.request({payee: PAYEE, why: "new supplier"});
+      assert.equal(ticket?.policyId, 7n);
+      assert.equal(filed.policyId, "7");
+      assert.equal(filed.payee, PAYEE);
+    } finally {
+      capture.close();
+    }
   });
 });

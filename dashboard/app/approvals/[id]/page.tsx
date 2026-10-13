@@ -3,7 +3,7 @@ import {ApprovalCard} from "../../../components/ApprovalCard.tsx";
 import {NotConfigured, PageHead} from "../../../components/PageHead.tsx";
 import {getRequest} from "../../../lib/approvals.ts";
 import {ENGINE, abi, isConfigured, publicClient} from "../../../lib/chain.ts";
-import {owner} from "../../../lib/data.ts";
+import {owner, tryFleet} from "../../../lib/data.ts";
 
 export const dynamic = "force-dynamic";
 
@@ -43,16 +43,23 @@ export default async function ApprovalPage({params}: {params: Promise<{id: strin
     );
   }
 
+  const fleetRead = await tryFleet(owner);
+  const agents = fleetRead.ok ? fleetRead.value.policies.map((p) => p.id) : [];
+  // The agent it is for: the one the request names, or the only one there is.
+  const policyId = request.policyId ? BigInt(request.policyId) : agents.length === 1 ? agents[0]! : null;
+
   let allowed: boolean | null = null;
-  try {
-    allowed = (await publicClient.readContract({
-      address: ENGINE,
-      abi,
-      functionName: "isAllowedPayee",
-      args: [owner, request.payee],
-    })) as boolean;
-  } catch {
-    // Unreadable chain: fall back to the record rather than guessing.
+  if (policyId !== null) {
+    try {
+      allowed = (await publicClient.readContract({
+        address: ENGINE,
+        abi,
+        functionName: "isAllowedPayee",
+        args: [policyId, request.payee],
+      })) as boolean;
+    } catch {
+      // Unreadable chain: fall back to the record rather than guessing.
+    }
   }
 
   const settled =
@@ -64,8 +71,10 @@ export default async function ApprovalPage({params}: {params: Promise<{id: strin
       <div className="approval-page">
         <ApprovalCard
           settled={settled}
+          agents={agents}
           request={{
             requestId: request.id,
+            policyId: request.policyId ?? null,
             payee: request.payee,
             amount: request.amount,
             why: request.why,

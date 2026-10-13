@@ -1,7 +1,7 @@
 "use client";
 
 import {useState} from "react";
-import {fromUsdc, type Policy} from "@tollgate/shared";
+import {fromUsdc, type PolicyWithId as Policy} from "@tollgate/shared";
 import type {Address} from "viem";
 import {EditCard, Field} from "./EditCard.tsx";
 import {
@@ -69,7 +69,7 @@ export function CapsEditor({policy}: {policy: Policy}) {
         )
       }
       dirty={dirty && valid}
-      action={() => setCaps(parsedBudget!, parsedPerTx!)}
+      action={() => setCaps(policy.id, parsedBudget!, parsedPerTx!)}
     >
       <Field
         label="Lifetime budget (USDC)"
@@ -112,7 +112,7 @@ export function VelocityEditor({policy}: {policy: Policy}) {
         </>
       }
       dirty={dirty && valid}
-      action={() => setVelocity(parsedBurst!, refillPerSecond(parsedPerDay!))}
+      action={() => setVelocity(policy.id, parsedBurst!, refillPerSecond(parsedPerDay!))}
     >
       <Field
         label="Burst (USDC)"
@@ -146,7 +146,7 @@ export function ExpiryEditor({policy}: {policy: Policy}) {
       title="Expiry"
       note="After this moment the agent is refused everything. Leave it empty for no expiry — a dead man's switch is only useful if someone would notice it firing."
       dirty={when !== current && valid}
-      action={() => setExpiry(parsed!)}
+      action={() => setExpiry(policy.id, parsed!)}
     >
       <Field
         label="Expires at"
@@ -177,7 +177,7 @@ export function AgentEditor({policy}: {policy: Policy}) {
       }
       submitLabel="Rotate key"
       dirty={valid}
-      action={() => setAgent(next as Address)}
+      action={() => setAgent(policy.id, next as Address)}
     >
       <Field
         label="New agent address"
@@ -193,16 +193,17 @@ export function AgentEditor({policy}: {policy: Policy}) {
 
 export function AllowanceEditor({
   allowance,
-  budgetCap,
-  spent = 0n,
+  needed,
+  agents = 1,
 }: {
   allowance: bigint;
-  budgetCap: bigint;
-  spent?: bigint;
+  /** What every agent together can still spend: the most the allowance usefully covers. */
+  needed: bigint;
+  agents?: number;
 }) {
   const [amount, setAmount] = useState(fromUsdc(allowance));
   const parsed = parseUsdc(amount);
-  const check = checkAllowance(parsed, budgetCap, spent);
+  const check = checkAllowance(parsed, needed, 0n);
   const dirty = amount !== fromUsdc(allowance) && passes(check);
 
   return (
@@ -210,10 +211,10 @@ export function AllowanceEditor({
       title="Allowance"
       note={
         <>
-          What the contract is permitted to pull from your wallet. This is the second
-          ceiling and the real exit: setting it to 0 stops every payment without touching
-          the policy. Caps mean nothing above it — a $20 budget behind a $5 allowance
-          refuses at $5.
+          What the contract is permitted to pull from your wallet
+          {agents > 1 ? <>, shared by all {agents} of your agents</> : null}. This is the second
+          ceiling and the real exit: setting it to 0 stops every payment without touching any
+          policy. Caps mean nothing above it: a $20 budget behind a $5 allowance refuses at $5.
         </>
       }
       submitLabel="Set allowance"
@@ -231,18 +232,18 @@ export function AllowanceEditor({
   );
 }
 
-export function AddPayeeEditor() {
+export function AddPayeeEditor({policyId, name}: {policyId: bigint; name?: string | undefined}) {
   const [payee, setPayee] = useState("");
   const check = checkPayee(payee, ENGINE);
   const valid = payee !== "" && passes(check);
 
   return (
     <EditCard
-      title="Add a payee"
-      note="Allowlist an address directly, without waiting for the agent to ask for it."
+      title={name ? `Add a payee for ${name}` : "Add a payee"}
+      note={`Allowlist an address directly, without waiting for ${name ?? "the agent"} to ask for it.${name ? " Your other agents are not affected." : ""}`}
       submitLabel="Allowlist"
       dirty={valid}
-      action={() => addPayee(payee as Address)}
+      action={() => addPayee(policyId, payee as Address)}
     >
       <Field
         label="Address"
@@ -256,22 +257,22 @@ export function AddPayeeEditor() {
   );
 }
 
-export function RevokeEditor() {
+export function RevokeEditor({policyId, name}: {policyId: bigint; name?: string | undefined}) {
   return (
     <EditCard
-      title="Delete this policy"
+      title={name ? `Delete ${name}'s policy` : "Delete this policy"}
       note={
         <>
-          Removes the policy and unbinds the agent. It does <strong>not</strong> touch your
-          allowance — that is yours to revoke, and doing it yourself is the whole point of a
-          system that never holds your money. Set the allowance to 0 above as well if you
-          want the agent fully cut off.
+          Removes this policy and unbinds its agent key. Your other agents are not affected. It
+          does <strong>not</strong> touch your allowance: that is yours to change, and doing it
+          yourself is the whole point of a system that never holds your money. Lower the
+          allowance above by this agent&rsquo;s remaining budget once it is gone.
         </>
       }
       submitLabel="Delete policy"
       danger
       confirm="delete"
-      action={revokePolicy}
+      action={() => revokePolicy(policyId)}
     />
   );
 }

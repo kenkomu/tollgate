@@ -30,6 +30,9 @@ export interface ApprovalRequest {
   payee: Address;
   amount: string;
   why: string;
+  /** Which of the owner's policies (agents) the payee is for, as a decimal string. */
+  policyId?: string;
+  agent?: Address;
   requestedAt: number;
 }
 

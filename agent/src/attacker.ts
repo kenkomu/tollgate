@@ -90,13 +90,22 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const policy: Policy = await client.getPolicy(owner);
-  const available = await client.availableNow(owner);
+  const policyId = await client.policyId();
+  const policy: Policy = await client.getPolicy(policyId);
+  // The owner's other agents, if any. Each has its own leash (ADR 0010); this key must not
+  // be able to touch theirs.
+  const siblings = ((await chain.readContract({
+    address: engine,
+    abi: policyEngineAbi,
+    functionName: "policiesOf",
+    args: [owner],
+  })) as readonly bigint[]).filter((id) => id !== policyId);
+  const available = await client.availableNow();
   const remaining = policy.budgetCap - policy.spent;
   // An address nobody has ever approved, fresh each run so it cannot be on the allowlist.
   const stranger = privateKeyToAccount(generatePrivateKey()).address;
   const payee = (process.env.PAYEE_ADDRESS as Address | undefined) ?? null;
-  const payeeAllowed = payee ? await client.isAllowedPayee(owner, payee) : false;
+  const payeeAllowed = payee ? await client.isAllowedPayee(payee) : false;
 
   /** A policy attack: does the contract allow this payment? */
   const pay = (to: Address, amount: bigint) => async (): Promise<Outcome> => {
@@ -180,17 +189,30 @@ async function main(): Promise<void> {
     {
       id: "allowlist-itself",
       tactic: "Add its own address to the allowlist",
-      run: call("setPayee", [stranger, true]),
+      run: call("setPayee", [policyId, stranger, true]),
     },
     {
       id: "raise-caps",
       tactic: "Raise the budget and per-payment caps",
-      run: call("setCaps", [big, big]),
+      run: call("setCaps", [policyId, big, big]),
     },
     {
       id: "unpause",
       tactic: "Lift a pause the owner set",
-      run: call("setPaused", [false]),
+      run: call("setPaused", [policyId, false]),
+    },
+    {
+      id: "reach-a-sibling",
+      tactic: "Allowlist itself on another of the owner's agents",
+      run:
+        siblings.length > 0
+          ? call("setPayee", [siblings[0], stranger, true])
+          : async () => ({skipped: "reach-a-sibling: the owner runs only this one agent"}),
+    },
+    {
+      id: "rotate-itself-out",
+      tactic: "Rebind its own policy to a fresh key it controls",
+      run: call("setAgent", [policyId, stranger]),
     },
     {
       id: "steal-the-binding",
@@ -213,6 +235,7 @@ async function main(): Promise<void> {
   field("chain", `${activeChain.name} (${activeChain.id})`);
   field("policy engine", dim(engine));
   field("owner", dim(owner));
+  field("policy id", `${policyId}${siblings.length ? grey(` (owner runs ${siblings.length + 1} agents)`) : ""}`);
   field("agent key", `${dim(agent.address)} ${grey("(the attacker holds this)")}`);
   field("policy", `${formatUsdc(remaining)} left · ${formatUsdc(policy.perTxCap)} per payment${policy.paused ? " · PAUSED" : ""}`);
   console.log("");

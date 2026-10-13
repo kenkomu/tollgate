@@ -21,12 +21,12 @@ function spentLog(blockNumber: bigint, logIndex: number, amount: bigint) {
     args: {owner: OWNER, agent: AGENT, payee: PAYEE},
   });
 
-  // Non-indexed args, ABI-encoded: amount, spentTotal, availableAfter.
+  // Non-indexed args, ABI-encoded: policyId, amount, spentTotal, availableAfter.
   const word = (value: bigint) => value.toString(16).padStart(64, "0");
   return {
     address: ENGINE,
     topics,
-    data: `0x${word(amount)}${word(amount)}${word(usdc("4"))}` as `0x${string}`,
+    data: `0x${word(1n)}${word(amount)}${word(amount)}${word(usdc("4"))}` as `0x${string}`,
     blockNumber,
     blockHash: `0x${"11".repeat(32)}` as `0x${string}`,
     transactionHash: `0x${blockNumber.toString(16).padStart(64, "0")}` as `0x${string}`,

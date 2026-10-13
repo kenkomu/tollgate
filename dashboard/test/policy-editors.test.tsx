@@ -1,6 +1,6 @@
 import {render, screen, waitFor} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import {usdc, type Policy} from "@tollgate/shared";
+import {usdc, type PolicyWithId as Policy} from "@tollgate/shared";
 import {describe, expect, it, vi} from "vitest";
 import * as owner from "../lib/owner.ts";
 import {
@@ -19,7 +19,11 @@ vi.mock("../lib/chain.ts", async () => (await import("./mocks.ts")).chainModule(
 
 const writes = vi.mocked(owner);
 
+const ID = 4n;
+
 const policy: Policy = {
+  id: ID,
+  owner: OWNER,
   agent: AGENT,
   expiry: 0n,
   paused: false,
@@ -63,7 +67,7 @@ describe("CapsEditor", () => {
     await userEvent.click(save());
 
     await waitFor(() => expect(writes.setCaps).toHaveBeenCalledOnce());
-    expect(writes.setCaps).toHaveBeenCalledWith(12_500_000n, 1n);
+    expect(writes.setCaps).toHaveBeenCalledWith(ID, 12_500_000n, 1n);
     expect(await screen.findByText(/written to chain/i)).toBeTruthy();
   });
 
@@ -97,7 +101,7 @@ describe("VelocityEditor", () => {
     // 10 USDC / 86,400 s = 115.74 base units a second, stored as 115.
     expect(screen.getByText(/realised rate is 9\.936 a day/i)).toBeTruthy();
     await userEvent.click(save());
-    await waitFor(() => expect(writes.setVelocity).toHaveBeenCalledWith(usdc("4"), 115n));
+    await waitFor(() => expect(writes.setVelocity).toHaveBeenCalledWith(ID, usdc("4"), 115n));
   });
 
   it("blocks a refill so small it would be stored as zero", async () => {
@@ -121,7 +125,7 @@ describe("ExpiryEditor", () => {
     await retype(/expires at/i, "");
     expect(screen.getByText(/empty means never/i)).toBeTruthy();
     await userEvent.click(save());
-    await waitFor(() => expect(writes.setExpiry).toHaveBeenCalledWith(0n));
+    await waitFor(() => expect(writes.setExpiry).toHaveBeenCalledWith(ID, 0n));
   });
 
   it("warns that a past date stops the agent now", async () => {
@@ -140,7 +144,7 @@ describe("AgentEditor", () => {
     const next = "0x1111111111111111111111111111111111111111";
     await retype(/new agent address/i, next);
     await userEvent.click(rotate());
-    await waitFor(() => expect(writes.setAgent).toHaveBeenCalledWith(next));
+    await waitFor(() => expect(writes.setAgent).toHaveBeenCalledWith(ID, next));
   });
 
   it("refuses the owner's own wallet as the agent key", async () => {
@@ -168,20 +172,20 @@ describe("AllowanceEditor", () => {
   const set = () => screen.getByRole("button", {name: /set allowance/i});
 
   it("cuts the allowance to zero, the owner's exit", async () => {
-    render(<AllowanceEditor allowance={usdc("7")} budgetCap={usdc("10")} spent={usdc("3")} />);
+    render(<AllowanceEditor allowance={usdc("7")} needed={usdc("7")} />);
     await retype(/approved amount/i, "0");
     await userEvent.click(set());
     await waitFor(() => expect(writes.setAllowance).toHaveBeenCalledWith(0n));
   });
 
   it("warns when the allowance exceeds what the policy can still spend", async () => {
-    render(<AllowanceEditor allowance={usdc("7")} budgetCap={usdc("10")} spent={usdc("3")} />);
+    render(<AllowanceEditor allowance={usdc("7")} needed={usdc("7")} />);
     await retype(/approved amount/i, "1000");
     expect(screen.getByText(/protects nothing/i)).toBeTruthy();
   });
 
   it("refuses an amount beyond what the contract can store", async () => {
-    render(<AllowanceEditor allowance={0n} budgetCap={usdc("10")} />);
+    render(<AllowanceEditor allowance={0n} needed={usdc("10")} />);
     await retype(/approved amount/i, "9".repeat(40));
     expect(set()).toBeDisabled();
   });
@@ -191,22 +195,22 @@ describe("AddPayeeEditor", () => {
   const add = () => screen.getByRole("button", {name: /allowlist/i});
 
   it("allowlists a valid address", async () => {
-    render(<AddPayeeEditor />);
+    render(<AddPayeeEditor policyId={ID} />);
     const payee = "0x2222222222222222222222222222222222222222";
     await retype(/address/i, payee);
     await userEvent.click(add());
-    await waitFor(() => expect(writes.addPayee).toHaveBeenCalledWith(payee));
+    await waitFor(() => expect(writes.addPayee).toHaveBeenCalledWith(ID, payee));
   });
 
   it("refuses the policy contract itself", async () => {
-    render(<AddPayeeEditor />);
+    render(<AddPayeeEditor policyId={ID} />);
     await retype(/address/i, ENGINE);
     expect(screen.getByText(/destroys the funds/i)).toBeTruthy();
     expect(add()).toBeDisabled();
   });
 
   it("refuses the zero address", async () => {
-    render(<AddPayeeEditor />);
+    render(<AddPayeeEditor policyId={ID} />);
     await retype(/address/i, `0x${"0".repeat(40)}`);
     expect(add()).toBeDisabled();
   });
@@ -214,7 +218,7 @@ describe("AddPayeeEditor", () => {
 
 describe("RevokeEditor", () => {
   it("needs the confirmation phrase before it will delete", async () => {
-    render(<RevokeEditor />);
+    render(<RevokeEditor policyId={ID} />);
     const button = screen.getByRole("button", {name: /delete policy/i});
     expect(button).toBeDisabled();
 
@@ -224,7 +228,7 @@ describe("RevokeEditor", () => {
     expect(button).toBeEnabled();
 
     await userEvent.click(button);
-    await waitFor(() => expect(writes.revokePolicy).toHaveBeenCalledOnce());
+    await waitFor(() => expect(writes.revokePolicy).toHaveBeenCalledWith(ID));
   });
 });
 

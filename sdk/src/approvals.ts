@@ -19,39 +19,37 @@ export type ApprovalStatus = "pending" | "approved" | "declined";
 export interface ApprovalTicket {
   id: string;
   payee: Address;
+  /** The policy (the agent) the payee is wanted for. Allowlists are per policy. */
+  policyId: bigint;
 }
 
 export interface InboxConfig {
   client: TollgateClient;
   /** The Tollgate service. Optional: without it, status comes from the chain only. */
   serviceUrl?: string;
-  owner?: Address;
 }
 
 export class ApprovalInbox {
   #client: TollgateClient;
   #serviceUrl: string | undefined;
-  #owner: Address | undefined;
 
   constructor(config: InboxConfig) {
     this.#client = config.client;
     this.#serviceUrl = config.serviceUrl?.replace(/\/$/, "");
-    this.#owner = config.owner;
-  }
-
-  async #ownerAddress(): Promise<Address> {
-    this.#owner ??= await this.#client.owner();
-    return this.#owner;
   }
 
   /** File a request. Returns null when no service is configured or reachable. */
   async request(input: {payee: Address; amount?: string; why: string; label?: string}): Promise<ApprovalTicket | null> {
     if (!this.#serviceUrl) return null;
     try {
+      // Read first: the owner approves for this agent's policy, so the request has to say which.
+      const policyId = await this.#client.policyId();
       const response = await fetch(`${this.#serviceUrl}/approvals`, {
         method: "POST",
         headers: {"content-type": "application/json"},
         body: JSON.stringify({
+          policyId: policyId.toString(),
+          agent: this.#client.agentAddress,
           payee: input.payee,
           amount: input.amount ?? "",
           why: input.why,
@@ -62,7 +60,7 @@ export class ApprovalInbox {
       });
       if (!response.ok) return null;
       const body = (await response.json()) as {id: string};
-      return {id: body.id, payee: input.payee};
+      return {id: body.id, payee: input.payee, policyId};
     } catch {
       return null;
     }
@@ -70,7 +68,7 @@ export class ApprovalInbox {
 
   /** Where does this request stand? The chain decides "approved"; the service can only say "declined". */
   async status(ticket: ApprovalTicket): Promise<ApprovalStatus> {
-    if (await this.#client.isAllowedPayee(await this.#ownerAddress(), ticket.payee)) return "approved";
+    if (await this.#client.isAllowedPayee(ticket.payee, ticket.policyId)) return "approved";
     if (!this.#serviceUrl) return "pending";
     try {
       const response = await fetch(`${this.#serviceUrl}/approvals/${encodeURIComponent(ticket.id)}`, {

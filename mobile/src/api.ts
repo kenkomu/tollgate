@@ -155,6 +155,8 @@ export interface Approval {
   payee: string;
   amount: string;
   why: string;
+  /** Which agent's allowlist the payee is for. Null on requests from older agents. */
+  policyId: string | null;
   requestedAt: number;
   resolvedAt: number | null;
   outcome: "approved" | "declined" | null;

@@ -44,12 +44,19 @@ async function usdcOf(address: Address): Promise<bigint> {
   });
 }
 
+// The agent's own policy when we know the agent, otherwise the owner's first. An owner can
+// run several agents (ADR 0010); this report is about the one this .env drives.
+const policyId = agent
+  ? await client.readContract({address: engine, abi: policyEngineAbi, functionName: "policyOf", args: [agent]})
+  : ((await client.readContract({address: engine, abi: policyEngineAbi, functionName: "policiesOf", args: [owner]}))[0] ??
+    0n);
+
 const [policy, ownerUsdc, allowance, agentGas, payeeUsdc] = await Promise.all([
   client.readContract({
     address: engine,
     abi: policyEngineAbi,
     functionName: "getPolicy",
-    args: [owner],
+    args: [policyId],
   }) as Promise<unknown> as Promise<Policy>,
   usdcOf(owner),
   client.readContract({

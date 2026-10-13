@@ -35,8 +35,8 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const policy = await client.getPolicy(owner);
-  const available = await client.availableNow(owner);
+  const policy = await client.getPolicy();
+  const available = await client.availableNow();
   const gas = await client.gasBalance();
 
   banner(scenario.title, scenario.subtitle);
@@ -69,7 +69,7 @@ async function main(): Promise<void> {
     emit,
   });
 
-  const after = await client.getPolicy(owner);
+  const after = await client.getPolicy();
   const paid = events.filter((e) => e.kind === "paid");
   const refused = events.filter((e) => e.kind === "refused");
   const moved = paid.reduce((sum, e) => sum + (e.kind === "paid" ? e.amount : 0n), 0n);

@@ -2,7 +2,15 @@ import assert from "node:assert/strict";
 import {describe as suite, it} from "node:test";
 import type {Address} from "viem";
 import {MAX_LOG_BLOCK_RANGE, Reason, usdc} from "../src/index.ts";
-import {describe, planWindows, projectAuditLog, reasonText, type EngineLog} from "../src/audit.ts";
+import {
+  auditFromActivity,
+  describe,
+  planWindows,
+  projectAuditLog,
+  reasonText,
+  type Activity,
+  type EngineLog,
+} from "../src/audit.ts";
 
 const OWNER = "0x8dEa7F60FB144Ea127F6806302E6a83913348B69" as Address;
 const OTHER = "0x1111111111111111111111111111111111111111" as Address;
@@ -343,5 +351,72 @@ suite("auditFromActivity", () => {
     assert.equal(audit.entries[0]!.key, "0xd:0");
     assert.deepEqual(audit.allowedPayees, ["0x00000000000000000000000000000000000000Bb"]);
     assert.equal(audit.paused, false);
+  });
+});
+
+suite("many agents per owner (ADR 0010)", () => {
+  const PAYEE = "0x00000000000000000000000000000000000000aa" as Address;
+  const row = (n: number, kind: Activity["kind"], policyId?: bigint, payee?: Address): Activity => ({
+    key: `0x${n}:0`,
+    kind,
+    blockNumber: BigInt(n),
+    timestamp: 0,
+    txHash: `0x${n}`,
+    policyId,
+    payee,
+  });
+
+  const rows = [
+    row(1, "payee-allowed", 1n, PAYEE),
+    row(2, "payee-allowed", 2n, PAYEE),
+    row(3, "payee-removed", 2n, PAYEE),
+    row(4, "paused", 2n),
+    row(5, "fleet-paused"),
+  ];
+
+  it("one policy's removal does not hide another's approval", () => {
+    assert.deepEqual(auditFromActivity(rows).allowedPayees, [PAYEE]);
+    assert.deepEqual(auditFromActivity(rows, 1n).allowedPayees, [PAYEE]);
+    assert.deepEqual(auditFromActivity(rows, 2n).allowedPayees, []);
+  });
+
+  it("pause is per policy, and the fleet switch reaches all of them", () => {
+    assert.equal(auditFromActivity(rows, 1n).paused, false);
+    assert.equal(auditFromActivity(rows, 2n).paused, true);
+    assert.equal(auditFromActivity(rows, 1n).fleetPaused, true);
+    assert.equal(auditFromActivity([...rows, row(6, "fleet-resumed")], 1n).fleetPaused, false);
+  });
+
+  it("a scoped log holds that policy's events plus owner-wide ones", () => {
+    const kinds = auditFromActivity(rows, 1n).entries.map((e) => e.kind);
+    assert.deepEqual(kinds, ["fleet-paused", "payee-allowed"]);
+  });
+
+  it("raw logs carry their policy id through the projection", () => {
+    const owner = "0x00000000000000000000000000000000000000bb" as Address;
+    const log = (n: number, eventName: string, args: Record<string, unknown>) => ({
+      eventName,
+      args: {owner, ...args},
+      blockNumber: BigInt(n),
+      transactionHash: `0x${n}`,
+      logIndex: 0,
+    });
+    const audit = projectAuditLog(
+      [
+        log(1, "PayeeSet", {policyId: 1n, payee: PAYEE, allowed: true}),
+        log(2, "PayeeSet", {policyId: 2n, payee: PAYEE, allowed: true}),
+        log(3, "OwnerPauseSet", {paused: true}),
+      ],
+      owner,
+      2n,
+    );
+    assert.deepEqual(
+      audit.entries.map((e) => [e.kind, e.policyId]),
+      [
+        ["fleet-paused", undefined],
+        ["payee-allowed", 2n],
+      ],
+    );
+    assert.equal(audit.fleetPaused, true);
   });
 });

@@ -13,7 +13,7 @@ import {ExternalIcon, StopIcon} from "./Icon.tsx";
  * stops one counterparty. Both are direct owner-to-chain writes, so neither depends on
  * this app being reachable to take effect.
  */
-export function PayeeRow({payee}: {payee: Address}) {
+export function PayeeRow({payee, policyId}: {payee: Address; policyId: bigint}) {
   const [pending, startTransition] = useTransition();
   const [hash, setHash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +22,7 @@ export function PayeeRow({payee}: {payee: Address}) {
   function revoke() {
     setError(null);
     startTransition(async () => {
-      const result = await revokePayee(payee);
+      const result = await revokePayee(policyId, payee);
       if (result.ok) {
         setHash(result.hash ?? null);
         setDone(true);

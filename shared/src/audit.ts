@@ -38,7 +38,9 @@ export type ActivityKind =
   | "velocity-changed"
   | "expiry-changed"
   | "agent-rotated"
-  | "policy-revoked";
+  | "policy-revoked"
+  | "fleet-paused"
+  | "fleet-resumed";
 
 export interface Activity {
   key: string;
@@ -70,13 +72,34 @@ export interface Activity {
   detail?: {label: string; values: bigint[]} | undefined;
   /** On a rotation, the key that was replaced. */
   previousAgent?: Address | undefined;
+  /**
+   * Which policy (which agent) this happened to. Absent on owner-wide events, the fleet
+   * pause, which apply to every policy at once; and on refusals for an unbound key.
+   */
+  policyId?: bigint | undefined;
+}
+
+/** True for events that belong to every one of the owner's policies at once. */
+export function isOwnerWide(entry: Pick<Activity, "kind">): boolean {
+  return entry.kind === "fleet-paused" || entry.kind === "fleet-resumed";
+}
+
+/** Does this row belong in the log of one policy? Its own events, plus owner-wide ones. */
+export function belongsTo(entry: Pick<Activity, "kind" | "policyId">, policyId: bigint): boolean {
+  return isOwnerWide(entry) || entry.policyId === policyId;
 }
 
 export interface AuditLog {
   entries: Activity[];
-  /** Allowlisted payees, folded up from PayeeSet events. */
+  /**
+   * Allowlisted payees, folded up from PayeeSet events. Scoped to one policy when the log
+   * was built for one; otherwise every payee any of the owner's policies allows.
+   */
   allowedPayees: Address[];
+  /** This policy's own pause, or (unscoped) whether any policy was last left paused. */
   paused: boolean;
+  /** The owner-wide pause, which stops every policy whatever its own state. */
+  fleetPaused: boolean;
   /**
    * Set when only recent history was read (the service was unavailable and a full chain walk
    * would take minutes). Everything folded from history, the allowlist above included, is then
@@ -131,17 +154,14 @@ export function planWindows(
  *
  * Timestamps are left at 0 — they need a block read, which is the caller's business.
  */
-export function projectAuditLog(logs: readonly EngineLog[], owner: Address): AuditLog {
+export function projectAuditLog(logs: readonly EngineLog[], owner: Address, policyId?: bigint): AuditLog {
   // Filtered here rather than in an RPC topic filter, because every event type is fetched
-  // in one pass. One owner per deployment today; ADR 0004's registry is where this becomes
-  // a real index.
+  // in one pass. Every event carries the owner as a topic (ADR 0010).
   const mine = logs.filter(
     (log) => String(log.args.owner ?? "").toLowerCase() === owner.toLowerCase(),
   );
 
   const entries: Activity[] = [];
-  const payeeState = new Map<Address, boolean>();
-  let paused = false;
 
   for (const log of mine) {
     const a = log.args as {
@@ -160,6 +180,7 @@ export function projectAuditLog(logs: readonly EngineLog[], owner: Address): Aud
       expiry?: bigint;
       newAgent?: Address;
       previousAgent?: Address;
+      policyId?: bigint;
     };
 
     const base = {
@@ -167,6 +188,8 @@ export function projectAuditLog(logs: readonly EngineLog[], owner: Address): Aud
       blockNumber: log.blockNumber,
       timestamp: 0,
       txHash: log.transactionHash,
+      // Zero on a refusal for an unbound key: no policy, so none to attribute it to.
+      policyId: a.policyId === undefined || a.policyId === 0n ? undefined : a.policyId,
     };
 
     switch (log.eventName) {
@@ -198,13 +221,16 @@ export function projectAuditLog(logs: readonly EngineLog[], owner: Address): Aud
         break;
 
       case "PayeeSet":
-        if (a.payee !== undefined) payeeState.set(a.payee, Boolean(a.allowed));
         entries.push({...base, kind: a.allowed ? "payee-allowed" : "payee-removed", payee: a.payee});
         break;
 
       case "PauseSet":
-        paused = Boolean(a.paused);
         entries.push({...base, kind: a.paused ? "paused" : "resumed"});
+        break;
+
+      // The fleet switch: every agent at once.
+      case "OwnerPauseSet":
+        entries.push({...base, kind: a.paused ? "fleet-paused" : "fleet-resumed"});
         break;
 
       case "PolicyCreated":
@@ -255,18 +281,9 @@ export function projectAuditLog(logs: readonly EngineLog[], owner: Address): Aud
     }
   }
 
-  // Newest first. Ties broken by the log index inside the key, which is already ordered.
-  entries.sort((x, y) =>
-    y.blockNumber === x.blockNumber
-      ? y.key.localeCompare(x.key)
-      : Number(y.blockNumber - x.blockNumber),
-  );
-
-  return {
-    entries,
-    allowedPayees: [...payeeState.entries()].filter(([, allowed]) => allowed).map(([payee]) => payee),
-    paused,
-  };
+  // One fold for both paths (raw logs here, indexed rows in `auditFromActivity`), so they
+  // cannot disagree about the allowlist or the pause.
+  return auditFromActivity(entries, policyId);
 }
 
 /** Plain English for the owner, per §5.1. */
@@ -296,6 +313,10 @@ export function describe(entry: Activity): string {
       return "You replaced the agent key";
     case "policy-revoked":
       return "You revoked the policy";
+    case "fleet-paused":
+      return "You paused every agent";
+    case "fleet-resumed":
+      return "You resumed every agent";
   }
 }
 
@@ -312,23 +333,40 @@ export function reasonText(reason: Reason): string {
  * (`tx_hash:log_index`), which is what makes merging an index with an overlapping chain read
  * safe.
  */
-export function auditFromActivity(rows: readonly Activity[]): AuditLog {
+export function auditFromActivity(rows: readonly Activity[], policyId?: bigint): AuditLog {
   const byKey = new Map<string, Activity>();
-  for (const row of rows) byKey.set(row.key, row);
+  for (const row of rows) {
+    if (policyId === undefined || belongsTo(row, policyId)) byKey.set(row.key, row);
+  }
 
   const logIndex = (key: string) => Number(key.slice(key.lastIndexOf(":") + 1)) || 0;
   const oldestFirst = [...byKey.values()].sort((a, b) =>
     a.blockNumber === b.blockNumber ? logIndex(a.key) - logIndex(b.key) : a.blockNumber < b.blockNumber ? -1 : 1,
   );
 
+  // Keyed by policy as well as payee: unscoped, the same payee can be allowed on one policy
+  // and removed on another, and one policy's removal must not hide the other's approval.
   const payees = new Map<string, Address>();
-  let paused = false;
+  const pausedBy = new Map<string, boolean>();
+  let fleetPaused = false;
   for (const row of oldestFirst) {
-    if (row.kind === "payee-allowed" && row.payee) payees.set(row.payee.toLowerCase(), row.payee);
-    if (row.kind === "payee-removed" && row.payee) payees.delete(row.payee.toLowerCase());
-    if (row.kind === "paused") paused = true;
-    if (row.kind === "resumed") paused = false;
+    const scope = String(row.policyId ?? "");
+    if (row.kind === "payee-allowed" && row.payee) payees.set(`${scope}:${row.payee.toLowerCase()}`, row.payee);
+    if (row.kind === "payee-removed" && row.payee) payees.delete(`${scope}:${row.payee.toLowerCase()}`);
+    if (row.kind === "paused") pausedBy.set(scope, true);
+    if (row.kind === "resumed") pausedBy.set(scope, false);
+    if (row.kind === "policy-revoked") pausedBy.delete(scope);
+    if (row.kind === "fleet-paused") fleetPaused = true;
+    if (row.kind === "fleet-resumed") fleetPaused = false;
   }
 
-  return {entries: oldestFirst.reverse(), allowedPayees: [...payees.values()], paused};
+  const unique = new Map<string, Address>();
+  for (const payee of payees.values()) unique.set(payee.toLowerCase(), payee);
+
+  return {
+    entries: oldestFirst.reverse(),
+    allowedPayees: [...unique.values()],
+    paused: [...pausedBy.values()].some(Boolean),
+    fleetPaused,
+  };
 }

@@ -95,8 +95,9 @@ export function CreatePolicy() {
       title="Create a policy"
       note={
         <>
-          Two transactions: an allowance for exactly the budget, then the policy itself.
-          The agent key can only ask to spend — it can never change anything you set here.
+          Two transactions: the allowance raised by exactly this budget, then the policy
+          itself. The agent key can only ask to spend: it can never change anything you set
+          here.
         </>
       }
       submitLabel="Approve and create"
@@ -147,7 +148,7 @@ export function CreatePolicy() {
         inputMode="decimal"
         onChange={(e) => setBudget(e.target.value)}
         check={checks.budget}
-        hint="Also the allowance. Approved exactly, never unlimited."
+        hint="Added to your allowance, exactly. Never unlimited."
       />
       <Field
         label="Per payment (USDC)"

@@ -37,9 +37,9 @@ export const policyEngineAbi = [
     "name": "availableNow",
     "inputs": [
       {
-        "name": "owner",
-        "type": "address",
-        "internalType": "address"
+        "name": "policyId",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [
@@ -115,7 +115,13 @@ export const policyEngineAbi = [
         "internalType": "uint64"
       }
     ],
-    "outputs": [],
+    "outputs": [
+      {
+        "name": "policyId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
     "stateMutability": "nonpayable"
   },
   {
@@ -123,9 +129,9 @@ export const policyEngineAbi = [
     "name": "getPolicy",
     "inputs": [
       {
-        "name": "owner",
-        "type": "address",
-        "internalType": "address"
+        "name": "policyId",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [
@@ -188,6 +194,11 @@ export const policyEngineAbi = [
             "name": "lastRefill",
             "type": "uint64",
             "internalType": "uint64"
+          },
+          {
+            "name": "owner",
+            "type": "address",
+            "internalType": "address"
           }
         ]
       }
@@ -199,9 +210,9 @@ export const policyEngineAbi = [
     "name": "isAllowedPayee",
     "inputs": [
       {
-        "name": "owner",
-        "type": "address",
-        "internalType": "address"
+        "name": "policyId",
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
         "name": "payee",
@@ -230,9 +241,79 @@ export const policyEngineAbi = [
     ],
     "outputs": [
       {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "ownerPaused",
+    "inputs": [
+      {
         "name": "owner",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "policiesOf",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "policyCount",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "policyOf",
+    "inputs": [
+      {
+        "name": "agent",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "policyId",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -242,9 +323,9 @@ export const policyEngineAbi = [
     "name": "remainingBudget",
     "inputs": [
       {
-        "name": "owner",
-        "type": "address",
-        "internalType": "address"
+        "name": "policyId",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [
@@ -259,7 +340,13 @@ export const policyEngineAbi = [
   {
     "type": "function",
     "name": "revokePolicy",
-    "inputs": [],
+    "inputs": [
+      {
+        "name": "policyId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
@@ -267,6 +354,11 @@ export const policyEngineAbi = [
     "type": "function",
     "name": "setAgent",
     "inputs": [
+      {
+        "name": "policyId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
       {
         "name": "newAgent",
         "type": "address",
@@ -280,6 +372,11 @@ export const policyEngineAbi = [
     "type": "function",
     "name": "setCaps",
     "inputs": [
+      {
+        "name": "policyId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
       {
         "name": "budgetCap",
         "type": "uint128",
@@ -299,6 +396,11 @@ export const policyEngineAbi = [
     "name": "setExpiry",
     "inputs": [
       {
+        "name": "policyId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
         "name": "expiry",
         "type": "uint64",
         "internalType": "uint64"
@@ -309,8 +411,26 @@ export const policyEngineAbi = [
   },
   {
     "type": "function",
+    "name": "setOwnerPaused",
+    "inputs": [
+      {
+        "name": "paused",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "setPaused",
     "inputs": [
+      {
+        "name": "policyId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
       {
         "name": "paused",
         "type": "bool",
@@ -324,6 +444,11 @@ export const policyEngineAbi = [
     "type": "function",
     "name": "setPayee",
     "inputs": [
+      {
+        "name": "policyId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
       {
         "name": "payee",
         "type": "address",
@@ -343,6 +468,11 @@ export const policyEngineAbi = [
     "name": "setPayees",
     "inputs": [
       {
+        "name": "policyId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
         "name": "payees",
         "type": "address[]",
         "internalType": "address[]"
@@ -360,6 +490,11 @@ export const policyEngineAbi = [
     "type": "function",
     "name": "setVelocity",
     "inputs": [
+      {
+        "name": "policyId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
       {
         "name": "bucketCapacity",
         "type": "uint128",
@@ -433,15 +568,21 @@ export const policyEngineAbi = [
         "internalType": "address"
       },
       {
-        "name": "previousAgent",
-        "type": "address",
+        "name": "policyId",
+        "type": "uint256",
         "indexed": true,
-        "internalType": "address"
+        "internalType": "uint256"
       },
       {
         "name": "newAgent",
         "type": "address",
         "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "previousAgent",
+        "type": "address",
+        "indexed": false,
         "internalType": "address"
       }
     ],
@@ -456,6 +597,12 @@ export const policyEngineAbi = [
         "type": "address",
         "indexed": true,
         "internalType": "address"
+      },
+      {
+        "name": "policyId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
       },
       {
         "name": "budgetCap",
@@ -483,10 +630,35 @@ export const policyEngineAbi = [
         "internalType": "address"
       },
       {
+        "name": "policyId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
         "name": "expiry",
         "type": "uint64",
         "indexed": false,
         "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OwnerPauseSet",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "paused",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
       }
     ],
     "anonymous": false
@@ -500,6 +672,12 @@ export const policyEngineAbi = [
         "type": "address",
         "indexed": true,
         "internalType": "address"
+      },
+      {
+        "name": "policyId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
       },
       {
         "name": "paused",
@@ -519,6 +697,12 @@ export const policyEngineAbi = [
         "type": "address",
         "indexed": true,
         "internalType": "address"
+      },
+      {
+        "name": "policyId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
       },
       {
         "name": "payee",
@@ -544,6 +728,12 @@ export const policyEngineAbi = [
         "type": "address",
         "indexed": true,
         "internalType": "address"
+      },
+      {
+        "name": "policyId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
       },
       {
         "name": "agent",
@@ -595,6 +785,12 @@ export const policyEngineAbi = [
         "internalType": "address"
       },
       {
+        "name": "policyId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
         "name": "agent",
         "type": "address",
         "indexed": true,
@@ -624,6 +820,12 @@ export const policyEngineAbi = [
         "type": "address",
         "indexed": true,
         "internalType": "address"
+      },
+      {
+        "name": "policyId",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       },
       {
         "name": "amount",
@@ -663,6 +865,12 @@ export const policyEngineAbi = [
         "internalType": "address"
       },
       {
+        "name": "policyId",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
         "name": "amount",
         "type": "uint256",
         "indexed": false,
@@ -694,6 +902,12 @@ export const policyEngineAbi = [
         "internalType": "address"
       },
       {
+        "name": "policyId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
         "name": "bucketCapacity",
         "type": "uint128",
         "indexed": false,
@@ -718,9 +932,9 @@ export const policyEngineAbi = [
         "internalType": "address"
       },
       {
-        "name": "existingOwner",
-        "type": "address",
-        "internalType": "address"
+        "name": "existingPolicyId",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ]
   },
@@ -758,8 +972,14 @@ export const policyEngineAbi = [
   },
   {
     "type": "error",
-    "name": "PolicyExists",
-    "inputs": []
+    "name": "NotPolicyOwner",
+    "inputs": [
+      {
+        "name": "policyId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",

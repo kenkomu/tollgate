@@ -3,18 +3,25 @@ import {FilterChips, parseFilter, type FilterId} from "../../components/FilterCh
 import {Feed} from "../../components/Feed.tsx";
 import {ChainUnreachable, NotConfigured, PageHead, PartialHistory} from "../../components/PageHead.tsx";
 import {SkeletonFeed} from "../../components/Skeleton.tsx";
-import {owner, tryAudit} from "../../lib/data.ts";
+import {AgentSwitcher} from "../../components/AgentSwitcher.tsx";
+import {owner, scopeAudit, tryAudit, tryFleet} from "../../lib/data.ts";
 import {isConfigured} from "../../lib/chain.ts";
 
 export const dynamic = "force-dynamic";
 
-async function FullLog({filter}: {filter: FilterId}) {
-  const read = await tryAudit(owner);
+async function FullLog({filter, agent}: {filter: FilterId; agent: string | undefined}) {
+  const [read, fleetRead] = await Promise.all([tryAudit(owner), tryFleet(owner)]);
   // An audit log that silently renders empty when the read failed is worse than no page at
   // all: "nothing happened" and "we could not find out" look identical, and only one of them
   // is a reason to relax.
   if (!read.ok) return <ChainUnreachable detail={read.error} />;
-  const all = read.value.entries;
+
+  // Every agent by default; one agent (plus owner-wide events) when the switcher says so.
+  // The fleet read failing only costs the switcher, never the log.
+  const policies = fleetRead.ok ? fleetRead.value.policies : [];
+  const scoped = agent && /^\d+$/.test(agent) ? BigInt(agent) : null;
+  const audit = scoped === null ? read.value : scopeAudit(read.value, scoped);
+  const all = audit.entries;
   const matches = (kind: string, f: FilterId) =>
     f === "all" ? true : f === "paid" ? kind === "paid" : f === "refused" ? kind === "refused" : kind !== "paid" && kind !== "refused";
   const counts = {
@@ -26,8 +33,19 @@ async function FullLog({filter}: {filter: FilterId}) {
   return (
     <>
       <PartialHistory from={read.value.partialFrom} />
-      <FilterChips active={filter} counts={counts} />
-      <Feed entries={all.filter((e) => matches(e.kind, filter))} limit={200} />
+      <AgentSwitcher
+        policies={policies}
+        current={scoped}
+        path="/activity"
+        all
+        fleetPaused={fleetRead.ok && fleetRead.value.fleetPaused}
+      />
+      <FilterChips active={filter} counts={counts} agent={scoped?.toString()} />
+      <Feed
+        entries={all.filter((e) => matches(e.kind, filter))}
+        limit={200}
+        showAgent={scoped === null && policies.length > 1}
+      />
     </>
   );
 }
@@ -37,7 +55,9 @@ export default async function ActivityPage({
 }: {
   searchParams: Promise<{[key: string]: string | string[] | undefined}>;
 }) {
-  const filter = parseFilter((await searchParams).filter);
+  const params = await searchParams;
+  const filter = parseFilter(params.filter);
+  const agent = typeof params.agent === "string" ? params.agent : undefined;
   if (!isConfigured()) {
     return (
       <>
@@ -63,7 +83,7 @@ export default async function ActivityPage({
         </p>
       </section>
       <Suspense fallback={<SkeletonFeed />}>
-        <FullLog filter={filter} />
+        <FullLog filter={filter} agent={agent} />
       </Suspense>
     </>
   );

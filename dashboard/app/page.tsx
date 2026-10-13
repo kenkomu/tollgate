@@ -1,7 +1,9 @@
 import {Suspense} from "react";
 import Link from "next/link";
 import type {Address} from "viem";
-import {availableNow, formatUsdc, formatUsdcApprox} from "@tollgate/shared";
+import {agentLabel, availableNow, formatUsdc, formatUsdcApprox} from "@tollgate/shared";
+import {AgentSwitcher} from "../components/AgentSwitcher.tsx";
+import {FleetCard} from "../components/FleetCard.tsx";
 import {Feed} from "../components/Feed.tsx";
 import {Meter} from "../components/Meter.tsx";
 import {ChainUnreachable, NoPolicy, NotConfigured, PageHead, PartialHistory} from "../components/PageHead.tsx";
@@ -11,7 +13,7 @@ import {SetupGuide} from "../components/SetupGuide.tsx";
 import {Term} from "../components/Term.tsx";
 import {StatTile} from "../components/StatTile.tsx";
 import {Verdict} from "../components/Verdict.tsx";
-import {owner, tryAudit, tryPolicy} from "../lib/data.ts";
+import {fleetRemaining, owner, pickPolicy, scopeAudit, tryAudit, tryFleet} from "../lib/data.ts";
 import {ENGINE, isConfigured, shortAddress} from "../lib/chain.ts";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +22,15 @@ export const dynamic = "force-dynamic";
  * Everything below needs the log walk, so it streams as one unit behind a skeleton while
  * the caps — which need only `getPolicy` — paint immediately.
  */
-async function SpendSection({owner: who, budgetCap}: {owner: Address; budgetCap: bigint}) {
+async function SpendSection({
+  owner: who,
+  policyId,
+  budgetCap,
+}: {
+  owner: Address;
+  policyId: bigint;
+  budgetCap: bigint;
+}) {
   const read = await tryAudit(who);
   if (!read.ok) {
     return (
@@ -35,7 +45,8 @@ async function SpendSection({owner: who, budgetCap}: {owner: Address; budgetCap:
       </section>
     );
   }
-  const audit = read.value;
+  // This agent's events, plus owner-wide ones such as the fleet switch.
+  const audit = scopeAudit(read.value, policyId);
 
   /**
    * The chart's right-hand bound, read once on the server and passed down as a prop.
@@ -114,12 +125,12 @@ async function SpendSection({owner: who, budgetCap}: {owner: Address; budgetCap:
       </section>
 
       <PartialHistory from={audit.partialFrom} />
-      <Feed entries={audit.entries} limit={8} more />
+      <Feed entries={audit.entries} limit={8} more={`/activity?agent=${policyId}`} />
     </>
   );
 }
 
-export default async function Page() {
+export default async function Page({searchParams}: {searchParams: Promise<{agent?: string | string[]}>}) {
   if (!isConfigured()) {
     return (
       <>
@@ -129,7 +140,7 @@ export default async function Page() {
     );
   }
 
-  const read = await tryPolicy(owner);
+  const read = await tryFleet(owner);
   if (!read.ok) {
     return (
       <>
@@ -139,8 +150,9 @@ export default async function Page() {
     );
   }
 
-  const policy = read.value;
-  if (!policy.exists) {
+  const fleet = read.value;
+  const policy = pickPolicy(fleet, (await searchParams).agent);
+  if (!policy) {
     return (
       <>
         <PageHead title="Overview" lede="Agent spend control on Arc." />
@@ -149,27 +161,37 @@ export default async function Page() {
     );
   }
 
+  const many = fleet.policies.length > 1;
+  const name = many ? agentLabel(policy.id) : undefined;
   const headroom = availableNow(policy);
 
   return (
     <>
       <PageHead
         title="Overview"
-        lede="What your agent has spent, and what the contract will still let it spend."
+        lede={
+          many
+            ? `${fleet.policies.length} agents, each on its own leash. Showing ${name}.`
+            : "What your agent has spent, and what the contract will still let it spend."
+        }
       />
 
-      <Verdict policy={policy} />
+      <AgentSwitcher policies={fleet.policies} current={policy.id} path="/" fleetPaused={fleet.fleetPaused} />
+
+      <Verdict policy={policy} fleetPaused={fleet.fleetPaused} name={name} />
 
       <Suspense fallback={null}>
-        <SetupGuide owner={owner} budgetCap={policy.budgetCap} />
+        <SetupGuide owner={owner} needed={fleetRemaining(fleet)} />
       </Suspense>
+
+      <FleetCard policies={fleet.policies} fleetPaused={fleet.fleetPaused} current={many ? policy.id : null} />
 
       <div className="grid grid-2">
         <section className="card">
-          <h2 className="card-title">This agent&rsquo;s leash</h2>
+          <h2 className="card-title">{name ? `${name}'s leash` : "This agent\u2019s leash"}</h2>
           <p className="card-note">
             Enforced in the contract, not in the agent. It cannot change any of this.{" "}
-            <Link href="/policy">Full policy →</Link>
+            <Link href={`/policy?agent=${policy.id}`}>Full policy →</Link>
           </p>
 
           <Meter
@@ -206,7 +228,7 @@ export default async function Page() {
       </div>
 
       <Suspense fallback={<SkeletonTiles />}>
-        <SpendSection owner={owner} budgetCap={policy.budgetCap} />
+        <SpendSection owner={owner} policyId={policy.id} budgetCap={policy.budgetCap} />
       </Suspense>
     </>
   );

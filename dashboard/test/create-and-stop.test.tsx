@@ -4,7 +4,7 @@ import {usdc} from "@tollgate/shared";
 import {describe, expect, it, vi} from "vitest";
 import * as owner from "../lib/owner.ts";
 import {CreatePolicy, TEMPLATES} from "../components/CreatePolicy.tsx";
-import {KillSwitch} from "../components/KillSwitch.tsx";
+import {FleetSwitch, KillSwitch} from "../components/KillSwitch.tsx";
 import {ApprovalQueue} from "../components/ApprovalQueue.tsx";
 import {OWNER} from "./mocks.ts";
 
@@ -82,25 +82,40 @@ describe("CreatePolicy", () => {
 
 describe("KillSwitch", () => {
   it("stops a running agent in one click", async () => {
-    render(<KillSwitch paused={false} />);
+    render(<KillSwitch policyId={2n} paused={false} />);
     await userEvent.click(screen.getByRole("button", {name: /stop everything/i}));
-    await waitFor(() => expect(writes.setPaused).toHaveBeenCalledWith(true));
+    await waitFor(() => expect(writes.setPaused).toHaveBeenCalledWith(2n, true));
     expect(await screen.findByText(/view transaction/i)).toBeTruthy();
   });
 
   it("resumes a stopped agent", async () => {
-    render(<KillSwitch paused />);
-    expect(screen.getByText(/every payment is being refused/i)).toBeTruthy();
+    render(<KillSwitch policyId={2n} paused />);
+    expect(screen.getByText(/every payment from the agent is being refused/i)).toBeTruthy();
     await userEvent.click(screen.getByRole("button", {name: /resume agent/i}));
-    await waitFor(() => expect(writes.setPaused).toHaveBeenCalledWith(false));
+    await waitFor(() => expect(writes.setPaused).toHaveBeenCalledWith(2n, false));
   });
 
   it("says so when the stop did not happen", async () => {
     writes.setPaused.mockResolvedValueOnce({ok: false, error: "You declined the signature. Nothing was changed."});
-    render(<KillSwitch paused={false} />);
+    render(<KillSwitch policyId={2n} paused={false} />);
     await userEvent.click(screen.getByRole("button", {name: /stop everything/i}));
     expect(await screen.findByText(/you declined the signature/i)).toBeTruthy();
     expect(screen.queryByText(/view transaction/i)).toBeNull();
+  });
+});
+
+describe("FleetSwitch", () => {
+  it("stops every agent in one transaction", async () => {
+    render(<FleetSwitch paused={false} agents={3} />);
+    expect(screen.getByText(/all 3 agents/i)).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", {name: /stop every agent/i}));
+    await waitFor(() => expect(writes.setOwnerPaused).toHaveBeenCalledWith(true));
+  });
+
+  it("resumes the fleet", async () => {
+    render(<FleetSwitch paused agents={3} />);
+    await userEvent.click(screen.getByRole("button", {name: /resume all agents/i}));
+    await waitFor(() => expect(writes.setOwnerPaused).toHaveBeenCalledWith(false));
   });
 });
 
@@ -112,20 +127,39 @@ describe("ApprovalQueue", () => {
     payee: "0x4444444444444444444444444444444444444444" as const,
     amount: "$0.05",
     why: "Forecast for the trip",
+    policyId: "3",
     requestedAt: 0,
   };
 
-  it("approving allowlists the payee on chain", async () => {
-    render(<ApprovalQueue requests={[request]} />);
+  it("approving allowlists the payee for the agent that asked", async () => {
+    render(<ApprovalQueue requests={[request]} agents={[1n, 3n]} />);
+    expect(screen.getByText(/for agent 3/i)).toBeTruthy();
     await userEvent.click(screen.getByRole("button", {name: /approve payee/i}));
-    await waitFor(() => expect(writes.approvePayee).toHaveBeenCalledWith(request.payee));
+    await waitFor(() => expect(writes.approvePayee).toHaveBeenCalledWith(3n, request.payee, "1"));
   });
 
   it("declining writes nothing on chain", async () => {
-    render(<ApprovalQueue requests={[request]} />);
+    render(<ApprovalQueue requests={[request]} agents={[3n]} />);
     await userEvent.click(screen.getByRole("button", {name: /decline/i}));
-    await waitFor(() => expect(writes.declineRequest).toHaveBeenCalledWith(request.payee));
+    await waitFor(() => expect(writes.declineRequest).toHaveBeenCalledWith(request.payee, 3n, "1"));
     expect(writes.approvePayee).not.toHaveBeenCalled();
+  });
+
+  it("a request that names no agent waits for the owner to pick one", async () => {
+    render(<ApprovalQueue requests={[{...request, policyId: null}]} agents={[1n, 3n]} />);
+    const approve = screen.getByRole("button", {name: /approve payee/i});
+    expect(approve).toBeDisabled();
+    await userEvent.selectOptions(screen.getByLabelText(/which agent/i), "1");
+    expect(approve).toBeEnabled();
+    await userEvent.click(approve);
+    await waitFor(() => expect(writes.approvePayee).toHaveBeenCalledWith(1n, request.payee, "1"));
+  });
+
+  it("with a single agent, an unnamed request goes to it", async () => {
+    render(<ApprovalQueue requests={[{...request, policyId: null}]} agents={[5n]} />);
+    expect(screen.queryByLabelText(/which agent/i)).toBeNull();
+    await userEvent.click(screen.getByRole("button", {name: /approve payee/i}));
+    await waitFor(() => expect(writes.approvePayee).toHaveBeenCalledWith(5n, request.payee, "1"));
   });
 
   it("shows an empty queue as nothing waiting", () => {

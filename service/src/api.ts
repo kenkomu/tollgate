@@ -187,8 +187,15 @@ export function createApi(config: ApiConfig): Server {
     const payee = String(body.payee ?? "");
     if (!isAddress(payee, {strict: false})) return json(res, 400, {error: "payee is not an address"});
 
+    // Which agent wants the payee. Optional for older agents; a request without it can only
+    // be approved for a policy the owner picks.
+    const policyId = /^\d+$/.test(String(body.policyId ?? "")) ? String(body.policyId) : null;
+    const agent = isAddress(String(body.agent ?? ""), {strict: false}) ? (String(body.agent) as Address) : null;
+
     const approval = store.requestApproval({
       owner,
+      policyId,
+      agent,
       serviceId: String(body.serviceId ?? "direct"),
       serviceName: String(body.serviceName ?? "Direct payment"),
       payee: payee as Address,

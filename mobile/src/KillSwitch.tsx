@@ -30,8 +30,23 @@ import {useTheme} from "./theme.ts";
  * WalletConnect would make this a single in-app flow. Until then, this is a deep link and a
  * fallback that tells the owner exactly what to do — which is worse UX and better than either
  * holding their key or pretending the button does something it does not.
+ *
+ * ## Every agent, one signature
+ *
+ * The phone drives the owner-wide switch, `setOwnerPaused`, not a single policy's pause. In
+ * the moment this button is for, the owner does not know which agent misbehaved and should not
+ * have to find out first. Per-agent pausing lives on the web dashboard.
  */
-export function KillSwitch({paused, onDone}: {paused: boolean; onDone: () => void}) {
+export function KillSwitch({
+  paused,
+  agents = 1,
+  onDone,
+}: {
+  /** The owner-wide pause. */
+  paused: boolean;
+  agents?: number;
+  onDone: () => void;
+}) {
   const t = useTheme();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +62,7 @@ export function KillSwitch({paused, onDone}: {paused: boolean; onDone: () => voi
     if (!enrolled) return true;
 
     const result = await LocalAuthentication.authenticateAsync({
-      promptMessage: paused ? "Resume your agent" : "Stop your agent",
+      promptMessage: paused ? "Resume your agents" : "Stop your agents",
       cancelLabel: "Cancel",
     });
     return result.success;
@@ -64,7 +79,7 @@ export function KillSwitch({paused, onDone}: {paused: boolean; onDone: () => voi
 
       // The explorer's write tab, prefilled. Any wallet the owner already has can sign there,
       // and the URL is stable and inspectable — no bridge, no session, nothing to expire.
-      const url = `${activeChain.blockExplorers.default.url}/address/${ENGINE}/write-contract#setPaused`;
+      const url = `${activeChain.blockExplorers.default.url}/address/${ENGINE}/write-contract#setOwnerPaused`;
       const opened = await Linking.canOpenURL(url);
       if (!opened) throw new Error("No browser available to open the contract.");
       await Linking.openURL(url);
@@ -78,15 +93,15 @@ export function KillSwitch({paused, onDone}: {paused: boolean; onDone: () => voi
 
   return (
     <Card tone={paused ? "stop" : undefined}>
-      <Title>{paused ? "Agent is stopped" : "Kill switch"}</Title>
+      <Title>{paused ? (agents > 1 ? "Every agent is stopped" : "Agent is stopped") : "Kill switch"}</Title>
       <Note>
         {paused
           ? "Every payment is being refused. Nothing can move until you resume."
-          : "Stops every payment immediately. It takes effect on chain, not in this app — so it keeps working even if this app, our servers, and your laptop are all gone."}
+          : `Stops every payment${agents > 1 ? ` from all ${agents} agents` : ""} immediately, in one signature. It takes effect on chain, not in this app, so it keeps working even if this app, our servers, and your laptop are all gone.`}
       </Note>
 
       <Button
-        label={busy ? "" : paused ? "Resume agent" : "Stop everything"}
+        label={busy ? "" : paused ? (agents > 1 ? "Resume all agents" : "Resume agent") : "Stop everything"}
         tone={paused ? "primary" : "danger"}
         onPress={trigger}
         busy={busy}
@@ -95,7 +110,7 @@ export function KillSwitch({paused, onDone}: {paused: boolean; onDone: () => voi
       {handedOff ? (
         <View style={[styles.handoff, {borderColor: t.line}]}>
           <Text style={[styles.handoffText, {color: t.text}]}>
-            Sign <Text style={{fontWeight: "700"}}>setPaused({paused ? "false" : "true"})</Text> in
+            Sign <Text style={{fontWeight: "700"}}>setOwnerPaused({paused ? "false" : "true"})</Text> in
             your wallet to finish. Nothing has changed until that transaction lands.
           </Text>
           <Text style={[styles.handoffMeta, {color: t.muted}]}>

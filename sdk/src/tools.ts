@@ -45,16 +45,12 @@ const parseAmount = (amount: string): bigint | null => {
 };
 
 export interface ToolOptions {
-  /** The owner whose policy binds this agent. Looked up from the chain when omitted. */
-  owner?: Address;
   /** The Tollgate service, for filing approval requests. Without it the approval tools say so. */
   serviceUrl?: string;
 }
 
 export function createTools(client: TollgateClient, options: ToolOptions = {}) {
-  const {owner} = options;
-  const resolveOwner = async () => owner ?? (await client.owner());
-  const inbox = new ApprovalInbox({client, owner, serviceUrl: options.serviceUrl});
+  const inbox = new ApprovalInbox({client, serviceUrl: options.serviceUrl});
 
   return [
     tool({
@@ -125,8 +121,8 @@ export function createTools(client: TollgateClient, options: ToolOptions = {}) {
         "How much this agent may still spend: remaining lifetime budget and rate-limit headroom right now.",
       shape: {},
       async run() {
-        const who = await resolveOwner();
-        const [available, budget] = await Promise.all([client.availableNow(who), client.remainingBudget(who)]);
+        const id = await client.policyId();
+        const [available, budget] = await Promise.all([client.availableNow(id), client.remainingBudget(id)]);
         return {
           ok: true,
           text:
@@ -235,7 +231,8 @@ export function createTools(client: TollgateClient, options: ToolOptions = {}) {
       },
       async run({id, address}) {
         if (!isAddress(address, {strict: false})) return {ok: false, text: `Not a valid address: ${address}.`};
-        const status = await inbox.status({id, payee: address as Address});
+        // The agent's own policy: an agent only ever asks for payees for itself.
+        const status = await inbox.status({id, payee: address as Address, policyId: await client.policyId()});
         const text = {
           approved: "APPROVED. The payee is on the on-chain allowlist. You may retry the payment.",
           declined: "DECLINED by the owner. Do not pay this address. Find another way or report back.",

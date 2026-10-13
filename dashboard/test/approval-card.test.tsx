@@ -13,6 +13,7 @@ const writes = vi.mocked(owner);
 /** Exactly what the SDK's approve_payee_inline tool pushes into a chat host. */
 const pushed = {
   requestId: "42",
+  policyId: "2",
   payee: "0x5555555555555555555555555555555555555555" as const,
   amount: "$1.20",
   why: "Buy the dataset the user asked for",
@@ -35,7 +36,7 @@ describe("ApprovalCard", () => {
     await userEvent.click(approve());
 
     await waitFor(() => expect(onDecide).toHaveBeenCalledWith({decision: "approved"}));
-    expect(writes.approvePayee).toHaveBeenCalledWith(pushed.payee);
+    expect(writes.approvePayee).toHaveBeenCalledWith(2n, pushed.payee, "42");
     expect(screen.getByRole("status").textContent).toMatch(/allowlisted on chain/i);
     expect(screen.queryByRole("button", {name: /approve payee/i})).toBeNull();
   });
@@ -58,7 +59,7 @@ describe("ApprovalCard", () => {
     await userEvent.click(decline());
 
     await waitFor(() => expect(onDecide).toHaveBeenCalledWith({decision: "declined"}));
-    expect(writes.declineRequest).toHaveBeenCalledWith(pushed.payee);
+    expect(writes.declineRequest).toHaveBeenCalledWith(pushed.payee, 2n, "42");
     expect(writes.approvePayee).not.toHaveBeenCalled();
   });
 

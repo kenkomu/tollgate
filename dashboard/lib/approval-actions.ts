@@ -1,8 +1,7 @@
 "use server";
 
 import {revalidatePath} from "next/cache";
-import type {Address} from "viem";
-import {removeRequest} from "./approvals.ts";
+import {removeRequest, type RequestMatch} from "./approvals.ts";
 
 /**
  * The only thing left on the server.
@@ -15,8 +14,8 @@ import {removeRequest} from "./approvals.ts";
  * Everything that moves money or changes policy is signed in the owner's browser — see
  * `lib/owner.ts`. Nothing in this file can authorise a payment.
  */
-export async function clearRequest(payee: Address, outcome: "approved" | "declined"): Promise<void> {
-  await removeRequest(payee, outcome);
+export async function clearRequest(match: RequestMatch, outcome: "approved" | "declined"): Promise<void> {
+  await removeRequest(match, outcome);
   revalidatePath("/payees");
   revalidatePath("/");
 }

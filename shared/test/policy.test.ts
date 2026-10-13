@@ -16,6 +16,7 @@ const AGENT = "0x1111111111111111111111111111111111111111" as Address;
 function policy(overrides: Partial<Policy> = {}): Policy {
   return {
     agent: AGENT,
+    owner: "0x2222222222222222222222222222222222222222",
     expiry: 0n,
     paused: false,
     exists: true,

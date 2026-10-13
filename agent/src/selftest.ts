@@ -45,7 +45,7 @@ check(
 console.log("\n── nonce serialisation + velocity back-off ──\n");
 
 const owner = await client.owner();
-const before = await client.getPolicy(owner);
+const before = await client.getPolicy();
 
 // Derived from the live policy rather than hardcoded, so the test stays meaningful when
 // the bucket is retuned. Three payments at 40% of capacity demand 120% of it, which the
@@ -96,7 +96,7 @@ for (const r of results) {
   }
 }
 
-const after = await client.getPolicy(owner);
+const after = await client.getPolicy();
 check(
   "lifetime spend matches what settled",
   after.spent - before.spent === BigInt(settled.length) * amount,

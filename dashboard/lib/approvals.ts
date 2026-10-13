@@ -28,17 +28,25 @@ export interface ApprovalRequest {
   payee: Address;
   amount: string;
   why: string;
+  /** Which agent's allowlist the payee is for (ADR 0010). Null from agents that predate it. */
+  policyId?: string | null;
   requestedAt: number;
 }
 
-interface ServiceApproval {
-  id: string;
-  serviceId: string;
-  serviceName: string;
+type ServiceApproval = ApprovalRequest;
+
+/** Which request a decision closes: by id when known, otherwise this payee for this agent. */
+export interface RequestMatch {
+  id?: string | undefined;
   payee: Address;
-  amount: string;
-  why: string;
-  requestedAt: number;
+  policyId?: string | null | undefined;
+}
+
+function matches(request: ApprovalRequest, match: RequestMatch): boolean {
+  if (match.id) return request.id === match.id;
+  if (request.payee.toLowerCase() !== match.payee.toLowerCase()) return false;
+  // A request that names no agent is closed by a decision for any of them.
+  return !request.policyId || !match.policyId || request.policyId === match.policyId;
 }
 
 async function fromService(): Promise<ApprovalRequest[] | null> {
@@ -113,12 +121,11 @@ export async function addRequest(request: Omit<ApprovalRequest, "id" | "requeste
  * lives on disk while later ones live in the service. Resolving only the preferred store
  * would leave the other one showing an ask the owner has already dealt with.
  */
-export async function removeRequest(payee: Address, outcome: "approved" | "declined"): Promise<void> {
+export async function removeRequest(match: RequestMatch, outcome: "approved" | "declined"): Promise<void> {
   const pending = await fromService();
   if (pending) {
-    const match = pending.find((r) => r.payee.toLowerCase() === payee.toLowerCase());
-    if (match) {
-      await fetch(`${SERVICE_URL}/approvals/${encodeURIComponent(match.id)}/resolve`, {
+    for (const request of pending.filter((r) => matches(r, match))) {
+      await fetch(`${SERVICE_URL}/approvals/${encodeURIComponent(request.id)}/resolve`, {
         method: "POST",
         headers: {"content-type": "application/json"},
         // The outcome matters: an agent waiting on this request reads "declined" from here and
@@ -130,5 +137,5 @@ export async function removeRequest(payee: Address, outcome: "approved" | "decli
   }
 
   const all = await fromDisk();
-  await writeAll(all.filter((r) => r.payee.toLowerCase() !== payee.toLowerCase()));
+  await writeAll(all.filter((r) => !matches(r, match)));
 }

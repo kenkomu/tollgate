@@ -1,7 +1,8 @@
 import {erc20Abi} from "viem";
-import {availableNow, formatUsdc, formatUsdcApprox, USDC_ADDRESS} from "@tollgate/shared";
+import {agentLabel, availableNow, formatUsdc, formatUsdcApprox, USDC_ADDRESS} from "@tollgate/shared";
+import {AgentSwitcher} from "../../components/AgentSwitcher.tsx";
 import {ExternalIcon} from "../../components/Icon.tsx";
-import {KillSwitch} from "../../components/KillSwitch.tsx";
+import {FleetSwitch, KillSwitch} from "../../components/KillSwitch.tsx";
 import {Meter} from "../../components/Meter.tsx";
 import {ChainUnreachable, NoPolicy, NotConfigured, PageHead} from "../../components/PageHead.tsx";
 import {
@@ -12,7 +13,7 @@ import {
   RevokeEditor,
   VelocityEditor,
 } from "../../components/PolicyEditors.tsx";
-import {owner, tryPolicy} from "../../lib/data.ts";
+import {fleetRemaining, owner, pickPolicy, tryFleet} from "../../lib/data.ts";
 import {ENGINE, addressUrl, isConfigured, publicClient, shortAddress} from "../../lib/chain.ts";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +24,7 @@ export const dynamic = "force-dynamic";
  * Every row states the rule and what it stops, because a cap without its consequence is
  * just a number. This page needs only `getPolicy`, so it never waits on the log walk.
  */
-export default async function PolicyPage() {
+export default async function PolicyPage({searchParams}: {searchParams: Promise<{agent?: string | string[]}>}) {
   if (!isConfigured()) {
     return (
       <>
@@ -33,7 +34,7 @@ export default async function PolicyPage() {
     );
   }
 
-  const read = await tryPolicy(owner);
+  const read = await tryFleet(owner);
   if (!read.ok) {
     return (
       <>
@@ -43,8 +44,9 @@ export default async function PolicyPage() {
     );
   }
 
-  const policy = read.value;
-  if (!policy.exists) {
+  const fleet = read.value;
+  const policy = pickPolicy(fleet, (await searchParams).agent);
+  if (!policy) {
     return (
       <>
         <PageHead title="Policy" lede="The rules the contract enforces." />
@@ -54,6 +56,8 @@ export default async function PolicyPage() {
   }
 
   const headroom = availableNow(policy);
+  const many = fleet.policies.length > 1;
+  const name = many ? agentLabel(policy.id) : undefined;
 
   // The second ceiling. A policy whose allowance is below its budget refuses at the
   // allowance, so showing one without the other would be a half-truth.
@@ -95,11 +99,18 @@ export default async function PolicyPage() {
   return (
     <>
       <PageHead
-        title="Policy"
-        lede="The five rules every payment must satisfy, and the switch that stops them all."
+        title={name ? `Policy · ${name}` : "Policy"}
+        lede={
+          many
+            ? `The five rules every payment from ${name} must satisfy. Your other agents have their own.`
+            : "The five rules every payment must satisfy, and the switch that stops them all."
+        }
       />
 
-      <KillSwitch paused={policy.paused} />
+      <AgentSwitcher policies={fleet.policies} current={policy.id} path="/policy" fleetPaused={fleet.fleetPaused} />
+
+      <KillSwitch policyId={policy.id} paused={policy.paused} fleetPaused={fleet.fleetPaused} name={name} />
+      {many || fleet.fleetPaused ? <FleetSwitch paused={fleet.fleetPaused} agents={fleet.policies.length} /> : null}
 
       <div className="grid grid-2">
         <section className="card">
@@ -136,8 +147,10 @@ export default async function PolicyPage() {
             </dd>
             <dt>spent to date</dt>
             <dd>{formatUsdc(policy.spent)}</dd>
+            <dt>policy id</dt>
+            <dd>{policy.id.toString()}</dd>
             <dt>state</dt>
-            <dd>{policy.paused ? "paused" : "active"}</dd>
+            <dd>{fleet.fleetPaused ? "stopped with every agent" : policy.paused ? "paused" : "active"}</dd>
           </dl>
         </section>
       </div>
@@ -151,10 +164,10 @@ export default async function PolicyPage() {
         <div className="editors">
           <CapsEditor policy={policy} />
           <VelocityEditor policy={policy} />
-          <AllowanceEditor allowance={allowance} budgetCap={policy.budgetCap} spent={policy.spent} />
+          <AllowanceEditor allowance={allowance} needed={fleetRemaining(fleet)} agents={fleet.policies.length} />
           <ExpiryEditor policy={policy} />
           <AgentEditor policy={policy} />
-          <RevokeEditor />
+          <RevokeEditor policyId={policy.id} name={name} />
         </div>
       </section>
 
