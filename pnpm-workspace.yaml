@@ -20,5 +20,10 @@ packages:
 # unrs-resolver is a native binary used by eslint-config-next's resolver. It runs a
 # postinstall build, which pnpm blocks by default. Allowed explicitly rather than left
 # to an interactive prompt, so a clean clone installs without stopping to ask.
+#
+# esbuild (pulled in by vitest for the dashboard's component tests) is refused: its
+# postinstall only swaps a JS shim for the native binary, and the platform package it
+# resolves through works without it.
 allowBuilds:
+  esbuild: false
   unrs-resolver: true

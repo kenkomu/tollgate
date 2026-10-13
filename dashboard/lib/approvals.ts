@@ -88,7 +88,7 @@ export async function addRequest(request: Omit<ApprovalRequest, "id" | "requeste
  * lives on disk while later ones live in the service. Resolving only the preferred store
  * would leave the other one showing an ask the owner has already dealt with.
  */
-export async function removeRequest(payee: Address): Promise<void> {
+export async function removeRequest(payee: Address, outcome: "approved" | "declined"): Promise<void> {
   const pending = await fromService();
   if (pending) {
     const match = pending.find((r) => r.payee.toLowerCase() === payee.toLowerCase());
@@ -96,7 +96,9 @@ export async function removeRequest(payee: Address): Promise<void> {
       await fetch(`${SERVICE_URL}/approvals/${encodeURIComponent(match.id)}/resolve`, {
         method: "POST",
         headers: {"content-type": "application/json"},
-        body: JSON.stringify({outcome: "approved"}),
+        // The outcome matters: an agent waiting on this request reads "declined" from here and
+        // stops waiting. Reporting a decline as approved left it waiting until it timed out.
+        body: JSON.stringify({outcome}),
         signal: AbortSignal.timeout(3_000),
       }).catch(() => undefined);
     }

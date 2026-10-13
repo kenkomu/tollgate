@@ -1,10 +1,11 @@
 "use client";
 
 import {useState} from "react";
-import {usdc} from "@tollgate/shared";
-import {isAddress, type Address} from "viem";
+import type {Address} from "viem";
 import {EditCard, Field} from "./EditCard.tsx";
 import {createPolicy} from "../lib/owner.ts";
+import {OWNER} from "../lib/chain.ts";
+import {checkAgent, checkAmount, checkCaps, checkRefill, parseUsdc, passes, refillPerSecond} from "../lib/policy-form.ts";
 
 /**
  * Onboarding.
@@ -19,14 +20,12 @@ import {createPolicy} from "../lib/owner.ts";
  * The defaults below are the demo's, which are deliberately small.
  */
 
-const DAY = 86_400n;
-
 /**
  * Starting points, not recommendations. Each sets all four numbers at once and can be edited
  * before signing. Small on purpose: the first policy someone creates should be one they would
  * be comfortable losing entirely, because that is the most it can ever cost them.
  */
-const TEMPLATES = [
+export const TEMPLATES = [
   {
     id: "trial",
     name: "Trial run",
@@ -56,16 +55,6 @@ const TEMPLATES = [
   },
 ] as const;
 
-function parseUsdc(value: string): bigint | null {
-  const trimmed = value.trim();
-  if (!/^\d+(\.\d{1,6})?$/.test(trimmed)) return null;
-  try {
-    return usdc(trimmed);
-  } catch {
-    return null;
-  }
-}
-
 export function CreatePolicy() {
   const [agent, setAgent] = useState("");
   const [budget, setBudget] = useState("10");
@@ -92,13 +81,14 @@ export function CreatePolicy() {
     perDay: parseUsdc(perDay),
   };
 
-  const agentValid = isAddress(agent, {strict: false});
-  const ready =
-    agentValid &&
-    parsed.budget !== null &&
-    parsed.perTx !== null &&
-    parsed.burst !== null &&
-    parsed.perDay !== null;
+  const checks = {
+    agent: checkAgent(agent, OWNER),
+    budget: checkAmount(budget) ?? checkCaps(parsed.budget, parsed.perTx),
+    perTx: checkAmount(perTx),
+    burst: checkAmount(burst),
+    perDay: checkRefill(parsed.perDay),
+  };
+  const ready = agent !== "" && passes(...Object.values(checks));
 
   return (
     <EditCard
@@ -117,7 +107,7 @@ export function CreatePolicy() {
           budgetCap: parsed.budget!,
           perTxCap: parsed.perTx!,
           bucketCapacity: parsed.burst!,
-          refillPerSecond: parsed.perDay! / DAY,
+          refillPerSecond: refillPerSecond(parsed.perDay!),
           expiry: 0n,
         })
       }
@@ -148,17 +138,15 @@ export function CreatePolicy() {
         onChange={(e) => setAgent(e.target.value)}
         placeholder="0x…"
         autoComplete="off"
-        hint={
-          agent !== "" && !agentValid
-            ? "Not a valid address"
-            : "The key your agent signs with. Never your own."
-        }
+        check={checks.agent}
+        hint="The key your agent signs with. Never your own."
       />
       <Field
         label="Lifetime budget (USDC)"
         value={budget}
         inputMode="decimal"
         onChange={(e) => setBudget(e.target.value)}
+        check={checks.budget}
         hint="Also the allowance. Approved exactly, never unlimited."
       />
       <Field
@@ -166,12 +154,14 @@ export function CreatePolicy() {
         value={perTx}
         inputMode="decimal"
         onChange={(e) => setPerTx(e.target.value)}
+        check={checks.perTx}
       />
       <Field
         label="Burst (USDC)"
         value={burst}
         inputMode="decimal"
         onChange={(e) => setBurst(e.target.value)}
+        check={checks.burst}
         hint="The most that can leave at once."
       />
       <Field
@@ -179,6 +169,7 @@ export function CreatePolicy() {
         value={perDay}
         inputMode="decimal"
         onChange={(e) => setPerDay(e.target.value)}
+        check={checks.perDay}
         hint="How fast the burst allowance comes back."
       />
     </EditCard>

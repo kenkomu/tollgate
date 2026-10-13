@@ -1,8 +1,9 @@
 "use client";
 
-import {useState, useTransition, type ReactNode} from "react";
+import {useId, useState, useTransition, type ReactNode} from "react";
 import {useRouter} from "next/navigation";
 import type {WriteResult} from "../lib/owner.ts";
+import type {Check} from "../lib/policy-form.ts";
 import {txUrl} from "../lib/chain.ts";
 import {activeChain} from "@tollgate/shared";
 import {ExternalIcon} from "./Icon.tsx";
@@ -111,17 +112,34 @@ export function EditCard({
   );
 }
 
-/** A labelled input. Units live in the label, never as placeholder text inside the box. */
+/**
+ * A labelled input. Units live in the label, never as placeholder text inside the box.
+ *
+ * A `check` outranks a `hint`: when something is wrong, the owner reads why rather than the
+ * generic help text, and an error marks the input invalid for assistive technology too.
+ */
 export function Field({
   label,
   hint,
+  check,
   ...props
-}: {label: string; hint?: string} & React.InputHTMLAttributes<HTMLInputElement>) {
+}: {label: string; hint?: string; check?: Check} & React.InputHTMLAttributes<HTMLInputElement>) {
+  const id = useId();
+  const message = check?.message ?? hint;
+  const tone = check ? ` ${check.level}` : "";
   return (
     <label className="field">
       <span>{label}</span>
-      <input {...props} />
-      {hint ? <small>{hint}</small> : null}
+      <input
+        {...props}
+        aria-invalid={check?.level === "error" ? true : undefined}
+        aria-describedby={message ? id : undefined}
+      />
+      {message ? (
+        <small id={id} className={tone.trim() || undefined}>
+          {message}
+        </small>
+      ) : null}
     </label>
   );
 }

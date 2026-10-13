@@ -1,8 +1,8 @@
 "use client";
 
 import {useState} from "react";
-import {fromUsdc, usdc, type Policy} from "@tollgate/shared";
-import {isAddress, type Address} from "viem";
+import {fromUsdc, type Policy} from "@tollgate/shared";
+import type {Address} from "viem";
 import {EditCard, Field} from "./EditCard.tsx";
 import {
   addPayee,
@@ -13,6 +13,21 @@ import {
   setExpiry,
   setVelocity,
 } from "../lib/owner.ts";
+import {ENGINE, OWNER} from "../lib/chain.ts";
+import {
+  DAY,
+  checkAgent,
+  checkAllowance,
+  checkAmount,
+  checkCaps,
+  checkExpiry,
+  checkPayee,
+  checkRefill,
+  parseExpiry,
+  parseUsdc,
+  passes,
+  refillPerSecond,
+} from "../lib/policy-form.ts";
 
 /**
  * The policy, editable.
@@ -27,26 +42,16 @@ import {
  *     for — the safe direction, since policy should never refill faster than requested.
  */
 
-const DAY = 86_400n;
-
-/** Guards a text field before it becomes a transaction. */
-function parseUsdc(value: string): bigint | null {
-  const trimmed = value.trim();
-  if (!/^\d+(\.\d{1,6})?$/.test(trimmed)) return null;
-  try {
-    return usdc(trimmed);
-  } catch {
-    return null;
-  }
-}
-
 export function CapsEditor({policy}: {policy: Policy}) {
   const [budget, setBudget] = useState(fromUsdc(policy.budgetCap));
   const [perTx, setPerTx] = useState(fromUsdc(policy.perTxCap));
 
   const parsedBudget = parseUsdc(budget);
   const parsedPerTx = parseUsdc(perTx);
-  const valid = parsedBudget !== null && parsedPerTx !== null;
+  const caps = checkCaps(parsedBudget, parsedPerTx, policy.spent);
+  const budgetCheck = checkAmount(budget) ?? caps;
+  const perTxCheck = checkAmount(perTx);
+  const valid = passes(budgetCheck, perTxCheck);
   const dirty = budget !== fromUsdc(policy.budgetCap) || perTx !== fromUsdc(policy.perTxCap);
 
   return (
@@ -71,14 +76,14 @@ export function CapsEditor({policy}: {policy: Policy}) {
         value={budget}
         inputMode="decimal"
         onChange={(e) => setBudget(e.target.value)}
-        hint={parsedBudget === null ? "Needs a number, up to six decimals" : undefined}
+        check={budgetCheck}
       />
       <Field
         label="Per payment (USDC)"
         value={perTx}
         inputMode="decimal"
         onChange={(e) => setPerTx(e.target.value)}
-        hint={parsedPerTx === null ? "Needs a number, up to six decimals" : undefined}
+        check={perTxCheck}
       />
     </EditCard>
   );
@@ -91,10 +96,10 @@ export function VelocityEditor({policy}: {policy: Policy}) {
 
   const parsedBurst = parseUsdc(burst);
   const parsedPerDay = parseUsdc(perDay);
-  const valid = parsedBurst !== null && parsedPerDay !== null;
+  const burstCheck = checkAmount(burst);
+  const refillCheck = checkRefill(parsedPerDay);
+  const valid = passes(burstCheck, refillCheck);
   const dirty = burst !== fromUsdc(policy.bucketCapacity) || perDay !== currentPerDay;
-
-  const realised = parsedPerDay === null ? null : (parsedPerDay / DAY) * DAY;
 
   return (
     <EditCard
@@ -107,24 +112,21 @@ export function VelocityEditor({policy}: {policy: Policy}) {
         </>
       }
       dirty={dirty && valid}
-      action={() => setVelocity(parsedBurst!, parsedPerDay! / DAY)}
+      action={() => setVelocity(parsedBurst!, refillPerSecond(parsedPerDay!))}
     >
       <Field
         label="Burst (USDC)"
         value={burst}
         inputMode="decimal"
         onChange={(e) => setBurst(e.target.value)}
+        check={burstCheck}
       />
       <Field
         label="Refill per day (USDC)"
         value={perDay}
         inputMode="decimal"
         onChange={(e) => setPerDay(e.target.value)}
-        hint={
-          realised !== null && realised !== parsedPerDay
-            ? `Stored per-second, so the realised rate is ${fromUsdc(realised)} a day — rounded down, never up.`
-            : undefined
-        }
+        check={refillCheck}
       />
     </EditCard>
   );
@@ -135,21 +137,23 @@ export function ExpiryEditor({policy}: {policy: Policy}) {
     policy.expiry === 0n ? "" : new Date(Number(policy.expiry) * 1000).toISOString().slice(0, 16);
   const [when, setWhen] = useState(current);
 
-  const parsed = when === "" ? 0n : BigInt(Math.floor(new Date(when).getTime() / 1000));
-  const valid = when === "" || !Number.isNaN(new Date(when).getTime());
+  const parsed = parseExpiry(when);
+  const check = checkExpiry(when);
+  const valid = passes(check);
 
   return (
     <EditCard
       title="Expiry"
       note="After this moment the agent is refused everything. Leave it empty for no expiry — a dead man's switch is only useful if someone would notice it firing."
       dirty={when !== current && valid}
-      action={() => setExpiry(parsed)}
+      action={() => setExpiry(parsed!)}
     >
       <Field
         label="Expires at"
         type="datetime-local"
         value={when}
         onChange={(e) => setWhen(e.target.value)}
+        check={check}
         hint={when === "" ? "Empty means never" : undefined}
       />
     </EditCard>
@@ -158,7 +162,8 @@ export function ExpiryEditor({policy}: {policy: Policy}) {
 
 export function AgentEditor({policy}: {policy: Policy}) {
   const [next, setNext] = useState("");
-  const valid = isAddress(next, {strict: false});
+  const check = checkAgent(next, OWNER, policy.agent);
+  const valid = next !== "" && passes(check);
 
   return (
     <EditCard
@@ -180,16 +185,25 @@ export function AgentEditor({policy}: {policy: Policy}) {
         onChange={(e) => setNext(e.target.value)}
         placeholder="0x…"
         autoComplete="off"
-        hint={next !== "" && !valid ? "Not a valid address" : undefined}
+        check={check}
       />
     </EditCard>
   );
 }
 
-export function AllowanceEditor({allowance, budgetCap}: {allowance: bigint; budgetCap: bigint}) {
+export function AllowanceEditor({
+  allowance,
+  budgetCap,
+  spent = 0n,
+}: {
+  allowance: bigint;
+  budgetCap: bigint;
+  spent?: bigint;
+}) {
   const [amount, setAmount] = useState(fromUsdc(allowance));
   const parsed = parseUsdc(amount);
-  const dirty = amount !== fromUsdc(allowance) && parsed !== null;
+  const check = checkAllowance(parsed, budgetCap, spent);
+  const dirty = amount !== fromUsdc(allowance) && passes(check);
 
   return (
     <EditCard
@@ -211,11 +225,7 @@ export function AllowanceEditor({allowance, budgetCap}: {allowance: bigint; budg
         value={amount}
         inputMode="decimal"
         onChange={(e) => setAmount(e.target.value)}
-        hint={
-          parsed !== null && parsed < budgetCap
-            ? `Below the ${fromUsdc(budgetCap)} budget — the allowance is what will bind first.`
-            : undefined
-        }
+        check={check}
       />
     </EditCard>
   );
@@ -223,7 +233,8 @@ export function AllowanceEditor({allowance, budgetCap}: {allowance: bigint; budg
 
 export function AddPayeeEditor() {
   const [payee, setPayee] = useState("");
-  const valid = isAddress(payee, {strict: false});
+  const check = checkPayee(payee, ENGINE);
+  const valid = payee !== "" && passes(check);
 
   return (
     <EditCard
@@ -239,7 +250,7 @@ export function AddPayeeEditor() {
         onChange={(e) => setPayee(e.target.value)}
         placeholder="0x…"
         autoComplete="off"
-        hint={payee !== "" && !valid ? "Not a valid address" : undefined}
+        check={check}
       />
     </EditCard>
   );

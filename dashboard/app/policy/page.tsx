@@ -151,7 +151,7 @@ export default async function PolicyPage() {
         <div className="editors">
           <CapsEditor policy={policy} />
           <VelocityEditor policy={policy} />
-          <AllowanceEditor allowance={allowance} budgetCap={policy.budgetCap} />
+          <AllowanceEditor allowance={allowance} budgetCap={policy.budgetCap} spent={policy.spent} />
           <ExpiryEditor policy={policy} />
           <AgentEditor policy={policy} />
           <RevokeEditor />

@@ -119,7 +119,7 @@ export async function approvePayee(payee: Address): Promise<WriteResult> {
   const result = await attempt(() => send("setPayee", [payee, true]));
   // Only clear the request once the allowlisting is actually on chain. Clearing it first
   // would lose the ask if the owner declined the signature.
-  if (result.ok) await clearRequest(payee);
+  if (result.ok) await clearRequest(payee, "approved");
   return result;
 }
 
@@ -130,7 +130,7 @@ export async function revokePayee(payee: Address): Promise<WriteResult> {
 
 /** Dismiss a request without allowlisting. The agent stays refused. */
 export async function declineRequest(payee: Address): Promise<{ok: boolean}> {
-  await clearRequest(payee);
+  await clearRequest(payee, "declined");
   return {ok: true};
 }
 

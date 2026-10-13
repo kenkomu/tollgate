@@ -15,8 +15,8 @@ import {removeRequest} from "./approvals.ts";
  * Everything that moves money or changes policy is signed in the owner's browser — see
  * `lib/owner.ts`. Nothing in this file can authorise a payment.
  */
-export async function clearRequest(payee: Address): Promise<void> {
-  await removeRequest(payee);
+export async function clearRequest(payee: Address, outcome: "approved" | "declined"): Promise<void> {
+  await removeRequest(payee, outcome);
   revalidatePath("/payees");
   revalidatePath("/");
 }
