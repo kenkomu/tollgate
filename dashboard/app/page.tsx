@@ -7,6 +7,8 @@ import {Meter} from "../components/Meter.tsx";
 import {ChainUnreachable, NoPolicy, NotConfigured, PageHead} from "../components/PageHead.tsx";
 import {SkeletonTiles} from "../components/Skeleton.tsx";
 import {SpendChart, type SpendPoint} from "../components/SpendChart.tsx";
+import {SetupGuide} from "../components/SetupGuide.tsx";
+import {Term} from "../components/Term.tsx";
 import {StatTile} from "../components/StatTile.tsx";
 import {Verdict} from "../components/Verdict.tsx";
 import {owner, tryAudit, tryPolicy} from "../lib/data.ts";
@@ -157,6 +159,10 @@ export default async function Page() {
 
       <Verdict policy={policy} />
 
+      <Suspense fallback={null}>
+        <SetupGuide owner={owner} budgetCap={policy.budgetCap} />
+      </Suspense>
+
       <div className="grid grid-2">
         <section className="card">
           <h2 className="card-title">This agent&rsquo;s leash</h2>
@@ -166,14 +172,14 @@ export default async function Page() {
           </p>
 
           <Meter
-            label="budget used"
+            label={<Term tip="The lifetime budget: the most this agent can ever spend under this policy. Once used, every payment is refused.">budget used</Term>}
             value={policy.spent}
             total={policy.budgetCap}
             sense="used"
             caption={`${formatUsdc(policy.budgetCap - policy.spent)} left of the lifetime budget`}
           />
           <Meter
-            label="rate headroom"
+            label={<Term tip="How much can leave right now. It refills steadily, so a burst of payments is capped even inside the lifetime budget.">spend rate headroom</Term>}
             value={headroom}
             total={policy.bucketCapacity}
             sense="remaining"

@@ -3,7 +3,7 @@ import {
   secondsUntilAvailable,
   withGasBuffer,
   arcFees,
-  arcTestnet,
+  activeChain,
   ARC_POLLING_INTERVAL_MS,
   policyEngineAbi,
   Reason,
@@ -224,16 +224,16 @@ export class TollgateClient {
     this.#account = privateKeyToAccount(config.agentPrivateKey);
     this.agentAddress = this.#account.address;
 
-    const transport = config.transport ?? http(config.rpcUrl ?? arcTestnet.rpcUrls.default.http[0]);
+    const transport = config.transport ?? http(config.rpcUrl ?? activeChain.rpcUrls.default.http[0]);
     this.#publicClient = createPublicClient({
-      chain: arcTestnet,
+      chain: activeChain,
       transport,
       // viem's 4s default is tuned for Ethereum's block time; Arc settles in under a second.
       pollingInterval: ARC_POLLING_INTERVAL_MS,
     });
     this.#walletClient = createWalletClient({
       account: this.#account,
-      chain: arcTestnet,
+      chain: activeChain,
       transport,
     });
   }
@@ -365,7 +365,7 @@ export class TollgateClient {
     const simulated = Number(result) as Reason;
 
     const txHash = await this.#walletClient.writeContract(request);
-    const explorerUrl = `${arcTestnet.blockExplorers.default.url}/tx/${txHash}`;
+    const explorerUrl = `${activeChain.blockExplorers.default.url}/tx/${txHash}`;
 
     let receipt;
     try {
@@ -496,7 +496,7 @@ export class TollgateClient {
               maxFeePerGas,
               maxPriorityFeePerGas,
               account: this.#account,
-              chain: arcTestnet,
+              chain: activeChain,
             })
           : await this.#walletClient.sendTransaction({
               to: original.to ?? this.engine,
@@ -506,7 +506,7 @@ export class TollgateClient {
               maxFeePerGas,
               maxPriorityFeePerGas,
               account: this.#account,
-              chain: arcTestnet,
+              chain: activeChain,
             });
 
       await this.#publicClient.waitForTransactionReceipt({hash: replacement, timeout: 90_000});
@@ -514,7 +514,7 @@ export class TollgateClient {
       return {
         outcome: "replaced" as const,
         txHash: replacement,
-        explorerUrl: `${arcTestnet.blockExplorers.default.url}/tx/${replacement}`,
+        explorerUrl: `${activeChain.blockExplorers.default.url}/tx/${replacement}`,
       };
     });
   }

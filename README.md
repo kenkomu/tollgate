@@ -95,7 +95,7 @@ Node ≥ 22.11. Copy `.env.example` to `.env` and fill it in — the agent needs
 
 ## Arc specifics worth knowing before you read the code
 
-- **Chain ID `5042002`**, RPC `https://rpc.testnet.arc.io`, explorer [testnet.arcscan.app](https://testnet.arcscan.app). Testnet only — Arc mainnet is not live.
+- **Two networks, one switch.** Set `ARC_CHAIN_ID` (`NEXT_PUBLIC_ARC_CHAIN_ID` for the dashboard, `EXPO_PUBLIC_ARC_CHAIN_ID` for mobile) to `5042` for **Arc mainnet** (RPC `https://rpc.mainnet.arc.io`, explorer [explorer.arc.io](https://explorer.arc.io)) or `5042002` for testnet (RPC `https://rpc.testnet.arc.io`, [testnet.arcscan.app](https://testnet.arcscan.app)). Testnet is the default. Mainnet deploys require `CONFIRM_MAINNET=true`. The addresses below are testnet; a mainnet deployment is listed separately once broadcast.
 - **USDC is the native gas token** *and* exposes an ERC-20 interface at the predeploy `0x3600000000000000000000000000000000000000`. Same balance, two interfaces. That ERC-20 view is what makes the allowance design possible.
 - **The decimals trap:** native USDC is 18 decimals for gas accounting, the ERC-20 interface is 6. Mixing them is a 10¹² error in a contract that moves money. House rule — `PolicyEngine` never reads a native balance, and every policy amount is 6-decimal ERC-20 units.
 - **PUSH0 is supported.** Arc targets the Osaka hard fork and runs reth; Circle's own ERC-8183 reference contract executes PUSH0 on every call. Compile to `cancun`, not `paris` — we want transient storage for the reentrancy guard.

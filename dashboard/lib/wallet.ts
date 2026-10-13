@@ -1,6 +1,6 @@
 "use client";
 
-import {arcTestnet} from "@tollgate/shared";
+import {activeChain} from "@tollgate/shared";
 import {createWalletClient, custom, numberToHex, type Address, type EIP1193Provider} from "viem";
 import {OWNER} from "./chain.ts";
 
@@ -63,9 +63,9 @@ export function hasWallet(): boolean {
  */
 async function ensureArc(provider: EIP1193Provider): Promise<void> {
   const current = (await provider.request({method: "eth_chainId"})) as string;
-  if (Number.parseInt(current, 16) === arcTestnet.id) return;
+  if (Number.parseInt(current, 16) === activeChain.id) return;
 
-  const chainId = numberToHex(arcTestnet.id);
+  const chainId = numberToHex(activeChain.id);
   try {
     await provider.request({
       method: "wallet_switchEthereumChain",
@@ -81,10 +81,10 @@ async function ensureArc(provider: EIP1193Provider): Promise<void> {
       params: [
         {
           chainId,
-          chainName: arcTestnet.name,
-          nativeCurrency: arcTestnet.nativeCurrency,
-          rpcUrls: [...arcTestnet.rpcUrls.default.http],
-          blockExplorerUrls: [arcTestnet.blockExplorers.default.url],
+          chainName: activeChain.name,
+          nativeCurrency: activeChain.nativeCurrency,
+          rpcUrls: [...activeChain.rpcUrls.default.http],
+          blockExplorerUrls: [activeChain.blockExplorers.default.url],
         },
       ],
     } as Parameters<EIP1193Provider["request"]>[0]);
@@ -131,7 +131,7 @@ export async function ownerWallet() {
 
   return {
     account,
-    client: createWalletClient({account, chain: arcTestnet, transport: custom(provider)}),
+    client: createWalletClient({account, chain: activeChain, transport: custom(provider)}),
   };
 }
 

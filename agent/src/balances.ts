@@ -12,7 +12,7 @@ import {createPublicClient, erc20Abi, formatUnits, http, type Address} from "vie
 import {
   FAUCET_URL,
   USDC_ADDRESS,
-  arcTestnet,
+  activeChain,
   availableNow,
   explorerAddress,
   formatUsdc,
@@ -30,7 +30,7 @@ if (!engine || !owner) {
   process.exit(1);
 }
 
-const client = createPublicClient({chain: arcTestnet, transport: http(process.env.ARC_RPC_URL)});
+const client = createPublicClient({chain: activeChain, transport: http(process.env.ARC_RPC_URL)});
 
 /** One `spend` costs roughly this much gas on Arc, measured rather than guessed. */
 const GAS_PER_PAYMENT = 120_000n * 30_000_000_000n;

@@ -1,4 +1,4 @@
-import {ARC_POLLING_INTERVAL_MS, arcTestnet, policyEngineAbi} from "@tollgate/shared";
+import {ARC_POLLING_INTERVAL_MS, activeChain, policyEngineAbi} from "@tollgate/shared";
 import {createPublicClient, http, type Address} from "viem";
 
 /**
@@ -26,8 +26,8 @@ import {createPublicClient, http, type Address} from "viem";
  * that has taken 20 seconds is queued behind a rate limit rather than mid-flight.
  */
 export const publicClient = createPublicClient({
-  chain: arcTestnet,
-  transport: http(process.env.ARC_RPC_URL ?? arcTestnet.rpcUrls.default.http[0], {
+  chain: activeChain,
+  transport: http(process.env.ARC_RPC_URL ?? activeChain.rpcUrls.default.http[0], {
     timeout: 20_000,
     retryCount: 4,
     retryDelay: 400,
@@ -61,9 +61,9 @@ export function shortAddress(address: string): string {
 }
 
 export function txUrl(hash: string): string {
-  return `${arcTestnet.blockExplorers.default.url}/tx/${hash}`;
+  return `${activeChain.blockExplorers.default.url}/tx/${hash}`;
 }
 
 export function addressUrl(address: string): string {
-  return `${arcTestnet.blockExplorers.default.url}/address/${address}`;
+  return `${activeChain.blockExplorers.default.url}/address/${address}`;
 }

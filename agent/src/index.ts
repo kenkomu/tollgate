@@ -1,4 +1,4 @@
-import {arcTestnet, formatUsdc, fromUsdc} from "@tollgate/shared";
+import {activeChain, formatUsdc, fromUsdc} from "@tollgate/shared";
 import type {Address, Hex} from "viem";
 import {runAgent} from "./agent.ts";
 import {COMPROMISED, NORMAL, type Scenario} from "./scenarios.ts";
@@ -41,7 +41,7 @@ async function main(): Promise<void> {
 
   banner(scenario.title, scenario.subtitle);
 
-  field("chain", `${arcTestnet.name} (${arcTestnet.id})`);
+  field("chain", `${activeChain.name} (${activeChain.id})`);
   field("policy engine", dim(engine));
   field("owner", dim(owner));
   field("agent key", dim(client.agentAddress));

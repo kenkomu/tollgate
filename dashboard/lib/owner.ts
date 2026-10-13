@@ -1,6 +1,6 @@
 "use client";
 
-import {arcFees, arcTestnet, USDC_ADDRESS} from "@tollgate/shared";
+import {arcFees, activeChain, USDC_ADDRESS} from "@tollgate/shared";
 import {erc20Abi, type Address} from "viem";
 import {ENGINE, abi, publicClient} from "./chain.ts";
 import {clearRequest} from "./approval-actions.ts";
@@ -213,7 +213,7 @@ export async function createPolicy(params: {
       abi: erc20Abi,
       functionName: "approve",
       args: [ENGINE, params.budgetCap],
-      chain: arcTestnet,
+      chain: activeChain,
       account,
       ...fees,
     });
@@ -240,7 +240,7 @@ export async function setAllowance(amount: bigint): Promise<WriteResult> {
       abi: erc20Abi,
       functionName: "approve",
       args: [ENGINE, amount],
-      chain: arcTestnet,
+      chain: activeChain,
       account,
       ...fees,
     });

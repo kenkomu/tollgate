@@ -23,6 +23,7 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_POLICY_ENGINE_ADDRESS: process.env.POLICY_ENGINE_ADDRESS ?? "",
     NEXT_PUBLIC_OWNER_ADDRESS: process.env.OWNER_ADDRESS ?? "",
+    NEXT_PUBLIC_ARC_CHAIN_ID: process.env.ARC_CHAIN_ID ?? "",
   },
 };
 

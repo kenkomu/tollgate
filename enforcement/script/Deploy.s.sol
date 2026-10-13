@@ -26,6 +26,13 @@ contract Deploy is Script {
 
         address usdc = vm.envOr("USDC_ADDRESS", ARC_USDC);
 
+        // Mainnet moves real money: refuse unless the operator has said so on purpose.
+        if (block.chainid == 5042) {
+            require(vm.envOr("CONFIRM_MAINNET", false), "mainnet deploy: set CONFIRM_MAINNET=true");
+        } else {
+            require(block.chainid == 5042002, "unexpected chain: expected Arc (5042) or Arc testnet (5042002)");
+        }
+
         console.log("chain id  :", block.chainid);
         console.log("deployer  :", deployer);
         console.log("balance   :", deployer.balance, "(native USDC, 18dp)");

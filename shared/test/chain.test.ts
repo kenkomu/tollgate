@@ -126,3 +126,12 @@ describe("chain constants", () => {
     assert.equal(explorerAddress("0xdef"), "https://testnet.arcscan.app/address/0xdef");
   });
 });
+
+describe("arcChainFor", () => {
+  it("defaults to testnet and selects mainnet by id", async () => {
+    const {arcChainFor, arcMainnet} = await import("../src/chain.ts");
+    assert.equal(arcChainFor(undefined).id, 5042002);
+    assert.equal(arcChainFor("5042").id, arcMainnet.id);
+    assert.throws(() => arcChainFor("1"), /not an Arc network/);
+  });
+});

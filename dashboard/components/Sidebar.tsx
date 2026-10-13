@@ -4,6 +4,7 @@ import Link from "next/link";
 import {usePathname} from "next/navigation";
 import {ActivityIcon, PayeeIcon, PolicyIcon, ShieldIcon} from "./Icon.tsx";
 import {LiveRefresh} from "./LiveRefresh.tsx";
+import {NetworkPill} from "./NetworkBanner.tsx";
 
 /**
  * Navigation.
@@ -20,6 +21,7 @@ const LINKS = [
   {href: "/activity", label: "Activity", Icon: ActivityIcon},
   {href: "/payees", label: "Payees", Icon: PayeeIcon},
   {href: "/policy", label: "Policy", Icon: PolicyIcon},
+  {href: "/welcome", label: "How it works", Icon: ShieldIcon},
 ] as const;
 
 export function Sidebar() {
@@ -28,7 +30,7 @@ export function Sidebar() {
   return (
     <nav className="rail" aria-label="Sections">
       <div className="rail-top">
-        <p className="eyebrow">Arc testnet</p>
+        <NetworkPill />
         <p className="wordmark">Tollgate</p>
       </div>
 

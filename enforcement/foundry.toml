@@ -49,6 +49,7 @@ depth = 256
 
 [rpc_endpoints]
 arc_testnet = "${ARC_RPC_URL}"
+arc_mainnet = "https://rpc.mainnet.arc.io"
 
 # ArcScan is Blockscout, not Etherscan. Per docs.arc.io/arc/tutorials/deploy-on-arc,
 # verification needs --verifier blockscout with this URL; Blockscout does not require

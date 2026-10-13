@@ -1,5 +1,5 @@
 import {createPublicClient, http, type Address} from "viem";
-import {arcTestnet, availableNow, policyEngineAbi, type Policy} from "@tollgate/shared";
+import {activeChain, availableNow, policyEngineAbi, type Policy} from "@tollgate/shared";
 import Constants from "expo-constants";
 
 /**
@@ -22,7 +22,7 @@ export const ENGINE = engine as Address;
 export const OWNER = owner as Address;
 
 export const client = createPublicClient({
-  chain: arcTestnet,
+  chain: activeChain,
   transport: http(undefined, {timeout: 15_000, retryCount: 3}),
 });
 
@@ -49,5 +49,5 @@ export async function readPolicy(): Promise<LivePolicy> {
 }
 
 export function explorerTx(hash: string): string {
-  return `${arcTestnet.blockExplorers.default.url}/tx/${hash}`;
+  return `${activeChain.blockExplorers.default.url}/tx/${hash}`;
 }

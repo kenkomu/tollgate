@@ -41,6 +41,71 @@ export const arcTestnet = defineChain({
 export const USDC_ADDRESS = "0x3600000000000000000000000000000000000000" as const;
 
 /**
+ * Arc mainnet.
+ *
+ * Values from https://docs.arc.io/arc/references/connect-to-arc (checked 2026-10-13).
+ * The docs list no explorer API URL for mainnet, so none is set here; verification on
+ * mainnet needs to be confirmed against explorer.arc.io before relying on it.
+ */
+export const arcMainnet = defineChain({
+  id: 5042,
+  name: "Arc",
+  nativeCurrency: {name: "USD Coin", symbol: "USDC", decimals: 18},
+  rpcUrls: {
+    default: {http: ["https://rpc.mainnet.arc.io"]},
+  },
+  blockExplorers: {
+    default: {name: "Arc Explorer", url: "https://explorer.arc.io"},
+  },
+});
+
+/**
+ * Arc mainnet contract addresses, from https://docs.arc.io/arc/references/contract-addresses.
+ * The USDC ERC-20 interface lives at the same predeploy address as on testnet; the
+ * Gateway and CCTP addresses differ.
+ */
+export const ARC_MAINNET_CONTRACTS = {
+  usdc: USDC_ADDRESS,
+  eurc: "0xbEf5f6d51CB62b58e6A8f77868681825C6fe21c1",
+  gatewayWallet: "0x77777777Dcc4d5A8B6E418Fd04D8997ef11000eE",
+  gatewayMinter: "0x2222222d7164433c4C09B0b0D809a9b52C04C205",
+  tokenMessengerV2: "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+  messageTransmitterV2: "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
+  tokenMinterV2: "0xfd78EE919681417d192449715b2594ab58f5D002",
+  messageV2: "0xec546b6B005471ECf012e5aF77FBeC07e0FD8f78",
+  create2: "0x4e59b44847b379578588920cA78FbF26c0B4956C",
+  multicall3: "0xcA11bde05977b3631167028862bE2a173976CA11",
+  permit2: "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+} as const;
+
+/**
+ * The Arc network this process talks to, chosen by ARC_CHAIN_ID (5042 = mainnet,
+ * 5042002 = testnet; testnet when unset). The three spellings are written out literally
+ * because Next.js and Expo only inline `process.env.X` when X appears verbatim.
+ */
+export function arcChainFor(id: string | number | undefined) {
+  const n = Number(id);
+  if (!id || n === arcTestnet.id) return arcTestnet;
+  if (n === arcMainnet.id) return arcMainnet;
+  throw new Error(`ARC_CHAIN_ID ${id} is not an Arc network (expected 5042 or 5042002)`);
+}
+
+function envChainId(): string | undefined {
+  try {
+    return (
+      process.env.ARC_CHAIN_ID ||
+      process.env.NEXT_PUBLIC_ARC_CHAIN_ID ||
+      process.env.EXPO_PUBLIC_ARC_CHAIN_ID ||
+      undefined
+    );
+  } catch {
+    return undefined; // no `process` (browser without inlining): default to testnet
+  }
+}
+
+export const activeChain = arcChainFor(envChainId());
+
+/**
  * Six. Not eighteen.
  *
  * The single most dangerous number in this codebase. Arc's native USDC is 18-decimal
@@ -204,9 +269,9 @@ export const ARC_POLLING_INTERVAL_MS = 500;
 export const FAUCET_URL = "https://faucet.circle.com";
 
 export function explorerTx(hash: string): string {
-  return `${arcTestnet.blockExplorers.default.url}/tx/${hash}`;
+  return `${activeChain.blockExplorers.default.url}/tx/${hash}`;
 }
 
 export function explorerAddress(address: string): string {
-  return `${arcTestnet.blockExplorers.default.url}/address/${address}`;
+  return `${activeChain.blockExplorers.default.url}/address/${address}`;
 }

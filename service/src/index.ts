@@ -1,5 +1,5 @@
 import {createPublicClient, http, type Address} from "viem";
-import {ARC_POLLING_INTERVAL_MS, arcTestnet} from "@tollgate/shared";
+import {ARC_POLLING_INTERVAL_MS, activeChain} from "@tollgate/shared";
 import {createApi} from "./api.ts";
 import {openDb} from "./db.ts";
 import {ExpoPushChannel} from "./expo-push.ts";
@@ -43,7 +43,7 @@ const pushable = store.devicesFor(owner).length > 0;
 const notifier = new Notifier(store, pushable ? new ExpoPushChannel(store) : consoleChannel);
 
 const client = createPublicClient({
-  chain: arcTestnet,
+  chain: activeChain,
   transport: http(process.env.ARC_RPC_URL, {timeout: 20_000, retryCount: 4}),
   pollingInterval: ARC_POLLING_INTERVAL_MS,
 });

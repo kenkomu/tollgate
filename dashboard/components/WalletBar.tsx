@@ -79,7 +79,7 @@ export function WalletBar() {
       <div className="walletbar warn">
         <span>
           No wallet detected. Owner actions are signed in your browser, never on our server —
-          so changing this policy needs a wallet extension on Arc testnet.
+          so changing this policy needs a wallet extension on Arc.
         </span>
       </div>
     );

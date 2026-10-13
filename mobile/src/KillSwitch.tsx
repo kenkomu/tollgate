@@ -1,7 +1,7 @@
 import {useState} from "react";
 import {Linking, StyleSheet, Text, View} from "react-native";
 import * as LocalAuthentication from "expo-local-authentication";
-import {arcTestnet} from "@tollgate/shared";
+import {activeChain} from "@tollgate/shared";
 import {Button, Card, Note, Title} from "./components.tsx";
 import {ENGINE, OWNER} from "./chain.ts";
 import {useTheme} from "./theme.ts";
@@ -64,7 +64,7 @@ export function KillSwitch({paused, onDone}: {paused: boolean; onDone: () => voi
 
       // The explorer's write tab, prefilled. Any wallet the owner already has can sign there,
       // and the URL is stable and inspectable — no bridge, no session, nothing to expire.
-      const url = `${arcTestnet.blockExplorers.default.url}/address/${ENGINE}/write-contract#setPaused`;
+      const url = `${activeChain.blockExplorers.default.url}/address/${ENGINE}/write-contract#setPaused`;
       const opened = await Linking.canOpenURL(url);
       if (!opened) throw new Error("No browser available to open the contract.");
       await Linking.openURL(url);

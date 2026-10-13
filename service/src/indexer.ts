@@ -3,7 +3,7 @@ import {
   ARC_POLLING_INTERVAL_MS,
   MAX_LOG_BLOCK_RANGE,
   POLICY_ENGINE_DEPLOY_BLOCK,
-  arcTestnet,
+  activeChain,
   planWindows,
   policyEngineAbi,
   projectAuditLog,
@@ -50,7 +50,7 @@ export class Indexer {
     this.#client =
       config.client ??
       (createPublicClient({
-        chain: arcTestnet,
+        chain: activeChain,
         transport: http(config.rpcUrl, {timeout: 20_000, retryCount: 4, retryDelay: 400}),
         pollingInterval: ARC_POLLING_INTERVAL_MS,
       }) as PublicClient);

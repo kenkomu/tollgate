@@ -1,7 +1,8 @@
-import {arcTestnet} from "@tollgate/shared";
+import {activeChain} from "@tollgate/shared";
 import {ENGINE, OWNER, addressUrl, shortAddress} from "../lib/chain.ts";
 import {CreatePolicy} from "./CreatePolicy.tsx";
 import {ExternalIcon} from "./Icon.tsx";
+import {PreSetup} from "./SetupGuide.tsx";
 
 /**
  * The header every section shares.
@@ -31,7 +32,7 @@ export function PageHead({title, lede}: {title: string; lede: string}) {
           </a>
         </dd>
         <dt>chain</dt>
-        <dd>{arcTestnet.id}</dd>
+        <dd>{activeChain.id}</dd>
       </dl>
     </header>
   );
@@ -52,6 +53,7 @@ export function NotConfigured() {
 export function NoPolicy() {
   return (
     <>
+      <PreSetup />
       <section className="card note-card">
         <p className="prose">
           No policy exists for <code>{shortAddress(OWNER)}</code> yet. Creating one takes

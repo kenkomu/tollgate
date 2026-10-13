@@ -1,7 +1,8 @@
+import type {ReactNode} from "react";
 import {formatUsdc, formatUsdcApprox} from "@tollgate/shared";
 
 interface MeterProps {
-  label: string;
+  label: ReactNode;
   value: bigint;
   total: bigint;
   /** "used" fills as it grows (budget); "remaining" fills as it grows (headroom). */

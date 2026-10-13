@@ -1,5 +1,6 @@
 import type {Metadata} from "next";
 import {Sidebar} from "../components/Sidebar.tsx";
+import {NetworkBanner} from "../components/NetworkBanner.tsx";
 import {WalletBar} from "../components/WalletBar.tsx";
 import "./globals.css";
 
@@ -19,6 +20,7 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
         <div className="shell">
           <Sidebar />
           <div className="content">
+            <NetworkBanner />
             <WalletBar />
             {children}
           </div>

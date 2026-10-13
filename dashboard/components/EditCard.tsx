@@ -4,6 +4,7 @@ import {useState, useTransition, type ReactNode} from "react";
 import {useRouter} from "next/navigation";
 import type {WriteResult} from "../lib/owner.ts";
 import {txUrl} from "../lib/chain.ts";
+import {activeChain} from "@tollgate/shared";
 import {ExternalIcon} from "./Icon.tsx";
 
 /**
@@ -42,8 +43,12 @@ export function EditCard({
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<WriteResult | null>(null);
   const [typed, setTyped] = useState("");
+  const [acked, setAcked] = useState(false);
 
-  const locked = confirm !== undefined && typed.trim() !== confirm;
+  // On mainnet every write moves or authorises real USDC, so the first click is a statement
+  // of intent rather than a reflex. Testnet stays frictionless.
+  const needsAck = !activeChain.testnet;
+  const locked = (confirm !== undefined && typed.trim() !== confirm) || (needsAck && !acked);
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -70,6 +75,13 @@ export function EditCard({
             Type <code>{confirm}</code> to confirm
           </span>
           <input value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" />
+        </label>
+      ) : null}
+
+      {needsAck ? (
+        <label className="ack">
+          <input type="checkbox" checked={acked} onChange={(e) => setAcked(e.target.checked)} />
+          <span>I understand this signs a real transaction on Arc mainnet.</span>
         </label>
       ) : null}
 
